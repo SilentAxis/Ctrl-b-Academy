@@ -1,0 +1,1693 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="An interactive tmux trainer: practise real keystrokes in a simulated tmux, from your first session to scripting.">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Ctrl-b Academy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;600&family=Martian+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+/* Layout: a tab bar over three working areas. Lessons = curriculum list, lesson card, live terminal (side by side when wide, stacked when narrow). */
+:root{
+  --bg:#e8ecf0; --surface:#f7f9fa; --raised:#ffffff; --ink:#121920; --muted:#55626e; --line:#d0d7de;
+  --accent:#16714a; --accent-soft:#d9eee2; --accent-ink:#ffffff; --amber:#865700; --amber-soft:#f7ead0;
+  --kbd:#ffffff; --kbd-edge:#aab5c0; --danger:#a33a3a; --focus:#2f6fd6;
+  --term-bg:#0e1013; --term-fg:#d4d8dd; --term-dim:#7c8592; --term-border:#3a4048;
+  --t-green:#52b35c; --t-yellow:#e3b93a; --t-blue:#5c8df0; --t-red:#e0605e; --t-ink:#0b0c0e;
+  --f-display:"Martian Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+  --f-body:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-term:"JetBrains Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0e1317; --surface:#151c22; --raised:#1b242c; --ink:#e2e7ec; --muted:#93a0ac; --line:#29343f;
+  --accent:#4cc487; --accent-soft:#15301f; --accent-ink:#06210f; --amber:#e7b54b; --amber-soft:#2c2310;
+  --kbd:#222d37; --kbd-edge:#3d4b58; --danger:#ef8585; --focus:#7aa7ff; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e1317; --surface:#151c22; --raised:#1b242c; --ink:#e2e7ec; --muted:#93a0ac; --line:#29343f;
+  --accent:#4cc487; --accent-soft:#15301f; --accent-ink:#06210f; --amber:#e7b54b; --amber-soft:#2c2310;
+  --kbd:#222d37; --kbd-edge:#3d4b58; --danger:#ef8585; --focus:#7aa7ff; color-scheme:dark}
+*{box-sizing:border-box}
+html,body{background:var(--bg);color:var(--ink)}
+body{font-family:var(--f-body);font-size:16px;line-height:1.55}
+a{color:var(--accent)}
+code{font-family:var(--f-term);font-size:.88em;background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:.05em .35em;white-space:nowrap}
+kbd{font-family:var(--f-term);font-size:.82em;display:inline-block;min-width:1.7em;text-align:center;padding:.1em .45em;border:1px solid var(--kbd-edge);border-bottom-width:2px;border-radius:5px;background:var(--kbd);color:var(--ink);line-height:1.4;white-space:nowrap}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+.wrap{max-width:1440px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+
+/* top bar */
+.top{border-bottom:1px solid var(--line);background:var(--surface)}
+.top .wrap{display:flex;align-items:center;gap:20px;flex-wrap:wrap;padding-block:12px}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--f-display);font-weight:600;font-size:1.05rem;letter-spacing:-.01em}
+.brand .cap{font-family:var(--f-term);font-size:.78rem;background:var(--t-green);color:var(--t-ink);padding:2px 7px;border-radius:4px}
+.tabs{display:flex;gap:4px;flex-wrap:wrap;margin-left:auto}
+.tabs button{background:none;border:1px solid transparent;border-radius:6px;padding:6px 12px;cursor:pointer;color:var(--muted);font-weight:700;font-size:.92rem}
+.tabs button[aria-selected="true"]{color:var(--ink);background:var(--raised);border-color:var(--line)}
+.tabs button:hover{color:var(--ink)}
+
+main{padding-block:20px 48px}
+.view[hidden]{display:none!important}
+
+/* lessons view */
+.learn{display:grid;gap:18px;grid-template-columns:minmax(0,1fr)}
+@media (min-width:820px){.learn{grid-template-columns:330px minmax(0,1fr)}.learn .rail{grid-column:1/-1}}
+@media (min-width:1220px){.learn{grid-template-columns:240px 350px minmax(0,1fr)}.learn .rail{grid-column:auto}}
+.rail details{background:var(--surface);border:1px solid var(--line);border-radius:10px}
+.rail summary{cursor:pointer;padding:10px 14px;font-weight:700;display:flex;justify-content:space-between;gap:8px;list-style:none}
+.rail summary::-webkit-details-marker{display:none}
+.rail summary::after{content:"▾";color:var(--muted)}
+.rail details[open] summary::after{content:"▴"}
+.rail .count{font-family:var(--f-term);font-size:.8rem;color:var(--muted);font-weight:400}
+.mods{padding:0 8px 10px;display:grid;gap:10px}
+@media (min-width:820px) and (max-width:1219px){.mods{grid-template-columns:repeat(auto-fill,minmax(210px,1fr))}}
+.mod h3{font-family:var(--f-display);font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:6px 6px 4px;font-weight:600}
+.mod ol{list-style:none;margin:0;padding:0}
+.mod button{display:flex;gap:8px;align-items:baseline;width:100%;text-align:left;background:none;border:0;border-radius:6px;padding:5px 6px;cursor:pointer;font-size:.92rem;line-height:1.35}
+.mod button:hover{background:var(--raised)}
+.mod button[aria-current="true"]{background:var(--accent-soft);font-weight:700}
+.mod .tick{font-family:var(--f-term);font-size:.75rem;width:1.1em;flex:none;color:var(--muted)}
+.mod .done .tick{color:var(--accent)}
+
+.lesson{background:var(--raised);border:1px solid var(--line);border-radius:12px;padding:18px 18px 16px;align-self:start;min-width:0}
+@media (min-width:820px){.lesson{position:sticky;top:12px;max-height:calc(100vh - 24px);overflow:auto}}
+.eyebrow{font-family:var(--f-display);font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);font-weight:600}
+.lesson h1{font-family:var(--f-display);font-size:1.3rem;line-height:1.25;margin:6px 0 10px;letter-spacing:-.02em;text-wrap:balance;font-weight:600}
+.lesson .intro p{margin:0 0 10px}
+.steps{list-style:none;margin:14px 0 0;padding:0;display:grid;gap:8px;counter-reset:s}
+.steps li{counter-increment:s;border:1px solid var(--line);border-radius:8px;padding:9px 10px 9px 38px;position:relative;background:var(--surface)}
+.steps li::before{content:counter(s);position:absolute;left:10px;top:9px;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-family:var(--f-term);font-size:.72rem;border:1px solid var(--line);color:var(--muted);background:var(--raised)}
+.steps li.current{border-color:var(--accent);background:var(--raised);box-shadow:0 0 0 1px var(--accent) inset}
+.steps li.current::before{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.steps li.done{color:var(--muted)}
+.steps li.done::before{content:"✓";background:var(--accent-soft);color:var(--accent);border-color:var(--accent-soft)}
+.steps li.todo{opacity:.62}
+.hint-btn{background:none;border:0;padding:0;margin-top:4px;color:var(--accent);cursor:pointer;font-size:.86rem;font-weight:700;text-decoration:underline;text-underline-offset:2px}
+.hint{margin-top:6px;font-size:.9rem;color:var(--muted)}
+.complete{margin-top:14px;border-radius:8px;background:var(--accent-soft);padding:12px 14px}
+.complete strong{display:block;font-family:var(--f-display);font-size:.9rem;margin-bottom:4px}
+.lesson-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:7px;padding:7px 12px;cursor:pointer;font-weight:700;font-size:.9rem}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.badge{font-family:var(--f-term);font-size:.72rem;border-radius:4px;padding:1px 6px;background:var(--surface);border:1px solid var(--line);color:var(--muted)}
+
+/* terminal */
+.workbench{min-width:0;display:grid;gap:10px;align-content:start}
+.term-head{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;font-size:.86rem;color:var(--muted)}
+.indicators{display:flex;gap:6px;flex-wrap:wrap}
+.ind{font-family:var(--f-term);font-size:.75rem;border-radius:4px;padding:2px 7px;border:1px solid var(--line);background:var(--surface);color:var(--muted)}
+.ind.on{background:var(--amber-soft);border-color:var(--amber);color:var(--amber);font-weight:600}
+.term{position:relative;background:var(--term-bg);color:var(--term-fg);border-radius:10px;overflow:hidden;display:flex;flex-direction:column;height:clamp(320px,58vh,520px);font:13px/18px var(--f-term);cursor:text;border:1px solid var(--term-border)}
+.term.focused{box-shadow:0 0 0 2px var(--focus)}
+.term.status-top{flex-direction:column-reverse}
+#term-panes{position:relative;flex:1;min-height:0;background:var(--term-border)}
+.pane{position:absolute;background:var(--term-bg);overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;padding:0 5px}
+.ln{white-space:pre-wrap;overflow-wrap:anywhere;min-height:18px}
+.ln.nowrap{white-space:pre;overflow:hidden}
+.cur{background:var(--term-fg);color:var(--term-bg)}
+.cur.hollow{background:transparent;outline:1px solid var(--term-dim);outline-offset:-1px}
+.frame{position:absolute;border:1px solid var(--t-green);pointer-events:none}
+.csel{background:var(--t-yellow);color:var(--t-ink)}
+.ccur{background:var(--term-fg);color:var(--term-bg)}
+.copy-pos{position:absolute;top:0;right:0;background:var(--t-yellow);color:var(--t-ink);padding:0 4px}
+.pane-num{position:absolute;inset:0;display:grid;place-items:center;font-size:44px;line-height:1;font-weight:600;color:var(--t-blue);pointer-events:none}
+.pane-num.act{color:var(--t-red)}
+.clock{display:grid;place-items:center;height:100%;font-size:clamp(28px,7vw,64px);line-height:1;color:var(--t-blue);font-weight:600;letter-spacing:.06em}
+.list-view .hl,.tree .hl{background:var(--t-yellow);color:var(--t-ink)}
+.tree{position:absolute;inset:0;background:var(--term-bg);padding:2px 6px;overflow:hidden}
+.tree .foot{color:var(--term-dim);margin-top:6px}
+#term-status{height:18px;flex:none;display:flex;justify-content:space-between;gap:12px;padding:0 4px;white-space:pre;overflow:hidden}
+#term-status .st-msg{flex:1;background:var(--t-yellow);color:var(--t-ink);margin:0 -4px;padding:0 4px;white-space:pre;overflow:hidden}
+#term-status .st-left{overflow:hidden;text-overflow:clip}
+#term-status .win{cursor:default}
+#kbd{position:absolute;left:0;top:0;width:1px;height:1px;opacity:0;border:0;padding:0;resize:none;font-size:16px}
+.term-tip{font-size:.84rem;color:var(--muted)}
+.keybar{display:flex;flex-wrap:wrap;gap:6px}
+.keybar button{font-family:var(--f-term);font-size:.8rem;border:1px solid var(--kbd-edge);border-bottom-width:2px;background:var(--kbd);border-radius:6px;padding:5px 9px;cursor:pointer;min-width:2.3em}
+.keybar button.pk{background:var(--amber-soft);border-color:var(--amber);color:var(--amber);font-weight:600}
+.explain{border-left:3px solid var(--accent);background:var(--surface);border-radius:0 8px 8px 0;padding:8px 12px;font-size:.92rem;min-height:2.6em}
+.explain .muted{color:var(--muted)}
+
+/* panels for drill, reference, config */
+.panel{background:var(--raised);border:1px solid var(--line);border-radius:12px;padding:20px;min-width:0}
+.panel h2{font-family:var(--f-display);font-size:1.15rem;margin:0 0 6px;letter-spacing:-.02em;font-weight:600;text-wrap:balance}
+.panel h3{font-family:var(--f-display);font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:22px 0 8px;font-weight:600}
+.lead{color:var(--muted);margin:0 0 14px;max-width:68ch}
+.two{display:grid;gap:18px;grid-template-columns:minmax(0,1fr)}
+@media (min-width:900px){.two{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin-bottom:14px}
+.seg button{border:0;background:var(--surface);padding:6px 12px;cursor:pointer;font-weight:700;font-size:.88rem}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.pad{border:2px dashed var(--line);border-radius:12px;padding:26px 18px;text-align:center;cursor:pointer;background:var(--surface)}
+.pad:focus-visible{outline:none;border-color:var(--focus)}
+.pad.armed{border-style:solid;border-color:var(--amber)}
+.pad .q{font-family:var(--f-display);font-size:1.15rem;margin:6px 0 12px;text-wrap:balance}
+.pad .state{min-height:1.6em;font-weight:700}
+.pad .state.good{color:var(--accent)}
+.pad .state.bad{color:var(--danger)}
+.score{font-family:var(--f-term);font-size:.85rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.cmd-form{display:flex;gap:8px;flex-wrap:wrap}
+.cmd-form input{flex:1;min-width:0;font-family:var(--f-term);font-size:.95rem;padding:8px 10px;border:1px solid var(--line);border-radius:7px;background:var(--surface);color:var(--ink)}
+.tbl-wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.92rem}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-family:var(--f-display);font-size:.68rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+td code{white-space:normal}
+.ref-grid{display:grid;gap:4px 24px;grid-template-columns:minmax(0,1fr)}
+@media (min-width:980px){.ref-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+.opts{display:grid;gap:10px}
+.opt{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+.opt input{margin-top:5px}
+.opt small{display:block;color:var(--muted)}
+.opt select{font:inherit;padding:3px 6px;border-radius:6px;border:1px solid var(--line);background:var(--raised);color:var(--ink)}
+pre.conf{font-family:var(--f-term);font-size:.84rem;line-height:1.55;background:var(--term-bg);color:var(--term-fg);border-radius:10px;padding:14px;overflow-x:auto;margin:0;white-space:pre}
+pre.conf .c{color:var(--term-dim)}
+.links{display:grid;gap:8px;padding:0;list-style:none}
+.toast{position:fixed;left:50%;bottom:max(18px,env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:9px 14px;border-radius:8px;font-size:.92rem;max-width:min(92vw,520px);z-index:20}
+@media (prefers-reduced-motion:no-preference){.steps li.current{transition:box-shadow .2s}}
+</style>
+</head>
+<body>
+
+<header class="top"><div class="wrap">
+  <div class="brand"><span class="cap">C-b</span> Ctrl-b Academy</div>
+  <nav class="tabs" role="tablist" aria-label="Sections">
+    <button role="tab" data-view="learn" aria-selected="true">Lessons</button>
+    <button role="tab" data-view="drill" aria-selected="false">Key drill</button>
+    <button role="tab" data-view="reference" aria-selected="false">Reference</button>
+    <button role="tab" data-view="config" aria-selected="false">Config builder</button>
+  </nav>
+</div></header>
+
+<main class="wrap">
+  <section class="view learn" id="view-learn">
+    <aside class="rail"><details id="rail" open><summary><span>Lessons</span><span class="count" id="progress-count"></span></summary><div class="mods" id="mods"></div></details></aside>
+    <article class="lesson" id="lesson" aria-live="polite"></article>
+    <div class="workbench">
+      <div class="term-head">
+        <span class="term-tip" id="term-tip">Click the terminal, then type. Press <kbd>Ctrl</kbd>+<kbd>b</kbd> for the prefix.</span>
+        <div class="indicators"><span class="ind" id="ind-prefix">PREFIX</span><span class="ind" id="ind-mode">normal</span><span class="ind" id="ind-where">shell</span></div>
+      </div>
+      <div class="term" id="term" role="application" aria-label="Simulated tmux terminal. Focus it and type; press Control b for the tmux prefix." tabindex="-1">
+        <div id="term-panes"></div>
+        <div id="term-status" hidden></div>
+        <textarea id="kbd" aria-label="Terminal input" autocapitalize="off" autocomplete="off" autocorrect="off" spellcheck="false"></textarea>
+      </div>
+      <div class="keybar" id="keybar" aria-label="On-screen keys"></div>
+      <div class="explain" id="explain" aria-live="polite"><span class="muted">Each tmux key you press is a command. What it ran shows up here.</span></div>
+    </div>
+  </section>
+
+  <section class="view" id="view-drill" hidden>
+    <div class="panel">
+      <h2>Key drill</h2>
+      <p class="lead">Recall beats rereading. Each card names a job; press the prefix and then the key that does it. Cards you miss come back sooner.</p>
+      <div class="seg" role="group" aria-label="Drill type"><button id="drill-keys" aria-pressed="true">Prefix keys</button><button id="drill-cmds" aria-pressed="false">Commands</button></div>
+      <div id="drill-keys-panel">
+        <div class="pad" id="pad" tabindex="0" role="button" aria-describedby="pad-state">
+          <div class="eyebrow">Press the prefix, then the key</div>
+          <div class="q" id="pad-q"></div>
+          <div class="state" id="pad-state" aria-live="polite">Click here to start.</div>
+        </div>
+        <p class="score" id="pad-score"></p>
+        <label class="term-tip"><input type="checkbox" id="pad-skip"> Skip the prefix (just press the key)</label>
+      </div>
+      <div id="drill-cmds-panel" hidden>
+        <p class="q" id="cmd-q" style="font-family:var(--f-display);font-size:1.1rem;margin:0 0 10px"></p>
+        <form class="cmd-form" id="cmd-form"><input id="cmd-input" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="Your command"><button class="btn primary" type="submit">Check</button><button class="btn" type="button" id="cmd-skip">Show answer</button></form>
+        <p class="state" id="cmd-state" aria-live="polite" style="font-weight:700;min-height:1.6em"></p>
+        <p class="score" id="cmd-score"></p>
+      </div>
+    </div>
+  </section>
+
+  <section class="view" id="view-reference" hidden>
+    <div class="panel" id="reference"></div>
+  </section>
+
+  <section class="view" id="view-config" hidden>
+    <div class="two">
+      <div class="panel">
+        <h2>Build your .tmux.conf</h2>
+        <p class="lead">tmux reads <code>~/.tmux.conf</code> when its server starts. Pick what you want, copy the file to your computer, or load it into the trainer to try it first.</p>
+        <form class="opts" id="conf-form"></form>
+      </div>
+      <div class="panel">
+        <h2>~/.tmux.conf</h2>
+        <p class="lead">Save this as <code>~/.tmux.conf</code>. If tmux is already running, apply it with <code>tmux source ~/.tmux.conf</code>.</p>
+        <pre class="conf" id="conf-out"></pre>
+        <div class="lesson-actions"><button class="btn primary" id="conf-use" type="button">Use in trainer</button><button class="btn" id="conf-copy" type="button">Copy</button><button class="btn" id="conf-off" type="button">Stop using it in the trainer</button></div>
+        <p class="term-tip" id="conf-note"></p>
+      </div>
+    </div>
+  </section>
+</main>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+(() => {
+'use strict';
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const HOST = 'laptop', LH = 18, STORE = 'ctrlb-academy-v1';
+let saved = {done: [], lesson: 0, config: '', useConfig: false};
+try { saved = {...saved, ...JSON.parse(localStorage.getItem(STORE) || '{}')}; } catch (e) {}
+const persist = () => { try { localStorage.setItem(STORE, JSON.stringify(saved)); } catch (e) {} };
+const pad2 = n => String(n).padStart(2, '0');
+
+/* ---------------- fake filesystem ---------------- */
+const FILES = {
+  '~/notes.txt': ['Shopping: oats, coffee, cat treats', 'Server: observatory.lan', 'Deploy token: 7f3a-91bc-4d2e', 'Reminder: Prefix d detaches. Your work keeps running.'],
+  '~/app.log': ['2026-11-03 09:00:01 INFO  server started on :8080', '2026-11-03 09:00:04 INFO  GET /health 200 2ms', '2026-11-03 09:02:17 WARN  slow query 812ms', '2026-11-03 09:05:42 ERROR upstream timeout'],
+  '~/build.sh': ['#!/bin/sh', 'echo "Building the project..."'],
+  '~/project/README.md': ['# Demo project', 'Run ../build.sh to build it.'],
+  '~/project/main.py': ['print("hello from tmux")'],
+};
+const DIRS = {'~': ['app.log', 'build.sh', 'notes.txt', 'project/'], '~/project': ['README.md', 'main.py']};
+
+/* ---------------- state ---------------- */
+const DEF = () => ({prefix: 'C-b', mouse: false, baseIndex: 0, paneBaseIndex: 0, modeKeys: 'emacs', statusBg: 'green', statusFg: 'black',
+  status: true, statusPosition: 'bottom', historyLimit: 2000, repeatTime: 500, displayPanesTime: 1800, renumber: false,
+  statusLeft: '[#S] ', statusRight: '"#{=21:pane_title}" %H:%M %d-%b-%y'});
+let uid = 1;
+const panes = new Map();
+const S = {sessions: [], client: null, outer: null, server: false, prefix: false, repeatUntil: 0, mode: null, msg: null, buffer: '',
+  opts: DEF(), custom: {}, unbound: new Set(), lastSession: null, prevSession: null, explain: null, focused: false, areaH: 360, promptHist: [], lastSearch: null};
+
+function newPane(cwd = '~') { const p = {id: uid++, lines: [], input: '', cwd, proc: null, hist: [], hi: -1}; panes.set(p.id, p); return p; }
+const promptOf = p => `you@${HOST}:${p.cwd}$ `;
+function out(p, text) { for (const l of String(text).split('\n')) p.lines.push(l); const lim = Math.max(100, S.opts.historyLimit); if (p.lines.length > lim) p.lines.splice(0, p.lines.length - lim); }
+const byId = id => S.sessions.find(s => s.id === id) || null;
+const findExact = n => S.sessions.find(s => s.name === n) || null;
+function findSession(n) { if (n == null) return null; n = String(n).replace(/^=/, ''); const e = findExact(n); if (e) return e; const m = S.sessions.filter(s => s.name.startsWith(n)); return m.length === 1 ? m[0] : null; }
+const curS = () => byId(S.client);
+const winOf = s => s ? s.windows.find(w => w.id === s.cur) || null : null;
+const curW = () => winOf(curS());
+const curP = () => { const w = curW(); return w ? panes.get(w.active) : null; };
+const sorted = () => [...S.sessions].sort((a, b) => a.name.localeCompare(b.name, 'en', {numeric: true}));
+function leaves(n, a = []) { if (n.t === 'p') a.push(n.id); else n.kids.forEach(k => leaves(k, a)); return a; }
+function pathTo(n, id) { if (n.t === 'p') return n.id === id ? [] : null; for (let i = 0; i < n.kids.length; i++) { const r = pathTo(n.kids[i], id); if (r) return [{node: n, i}, ...r]; } return null; }
+function findLeaf(n, id) { if (n.t === 'p') return n.id === id ? n : null; for (const k of n.kids) { const r = findLeaf(k, id); if (r) return r; } return null; }
+const paneIdx = (w, id) => leaves(w.root).indexOf(id) + S.opts.paneBaseIndex;
+const dispName = w => w.auto ? ((panes.get(w.active) || {}).proc ? panes.get(w.active).proc.name : 'bash') : w.name;
+function locate(pid) { for (const s of S.sessions) for (const w of s.windows) if (leaves(w.root).includes(pid)) return {s, w}; return null; }
+const sessionRunning = s => s.windows.some(w => leaves(w.root).some(id => panes.get(id) && panes.get(id).proc));
+
+function freeIndex(s) { let i = S.opts.baseIndex; while (s.windows.some(w => w.index === i)) i++; return i; }
+function makeWindow(s, name, pane, {select = true} = {}) {
+  pane = pane || newPane();
+  const w = {id: uid++, index: freeIndex(s), name: name || 'bash', auto: !name, root: {t: 'p', id: pane.id}, active: pane.id, lastPane: null, zoom: false, sync: false, layout: null};
+  s.windows.push(w); s.windows.sort((a, b) => a.index - b.index);
+  if (select || !s.cur) { if (s.cur) s.lastWin = s.cur; s.cur = w.id; }
+  return w;
+}
+function makeSession(name, winName) { const s = {id: uid++, name, windows: [], cur: null, lastWin: null, created: new Date()}; S.sessions.push(s); makeWindow(s, winName); return s; }
+function lowestName() { let n = 0; while (findExact(String(n))) n++; return String(n); }
+function selectWin(s, w) { if (s.cur !== w.id) { s.lastWin = s.cur; s.cur = w.id; } }
+function stopProc(p) { if (p && p.proc) { clearInterval(p.proc.timer); p.proc = null; } }
+function renumber(s) { if (!S.opts.renumber) return; s.windows.sort((a, b) => a.index - b.index).forEach((w, i) => w.index = S.opts.baseIndex + i); }
+
+function startServer() { S.server = true; S.opts = DEF(); S.custom = {}; S.unbound = new Set(); if (saved.useConfig && saved.config && LESSONS[cur] && LESSONS[cur].id === 'free') { const errs = runConfig(); if (errs.length) showMsg(errs[0], 3500); } }
+function stopServer() { S.server = false; S.opts = DEF(); S.custom = {}; S.unbound = new Set(); S.buffer = ''; emit('server-stop'); }
+function destroySession(s, msg = '[exited]') {
+  for (const w of s.windows) for (const id of leaves(w.root)) { stopProc(panes.get(id)); panes.delete(id); }
+  S.sessions = S.sessions.filter(x => x !== s);
+  if (S.client === s.id) { S.client = null; S.mode = null; S.prefix = false; if (msg) out(S.outer, msg); }
+  if (S.lastSession === s.id) S.lastSession = S.sessions.length ? S.sessions[S.sessions.length - 1].id : null;
+  emit('session-end', {name: s.name});
+  if (!S.sessions.length && S.server) stopServer();
+}
+function removeWindow(s, w) {
+  s.windows = s.windows.filter(x => x !== w);
+  if (s.lastWin === w.id) s.lastWin = null;
+  if (s.cur === w.id) { const last = s.windows.find(x => x.id === s.lastWin); const next = last || s.windows.find(x => x.index > w.index) || s.windows[s.windows.length - 1]; s.cur = next ? next.id : null; s.lastWin = null; }
+  renumber(s);
+}
+function destroyWindow(s, w) {
+  for (const id of leaves(w.root)) { stopProc(panes.get(id)); panes.delete(id); }
+  removeWindow(s, w);
+  if (!s.windows.length) destroySession(s);
+}
+function removeFromLayout(w, id) {
+  const path = pathTo(w.root, id); if (!path || !path.length) return false;
+  const {node, i} = path[path.length - 1];
+  const sz = node.sizes[i]; node.kids.splice(i, 1); node.sizes.splice(i, 1);
+  node.sizes[i > 0 ? i - 1 : 0] += sz;
+  if (node.kids.length === 1) { if (path.length === 1) w.root = node.kids[0]; else { const gp = path[path.length - 2]; gp.node.kids[gp.i] = node.kids[0]; } }
+  return true;
+}
+function unlinkPane(w, id) {
+  const before = leaves(w.root), pos = before.indexOf(id);
+  removeFromLayout(w, id);
+  const ids = leaves(w.root);
+  if (w.active === id) w.active = (w.lastPane && w.lastPane !== id && ids.includes(w.lastPane)) ? w.lastPane : ids[Math.max(0, Math.min(pos, ids.length) - 1)] || ids[0];
+  if (w.lastPane === id || w.lastPane === w.active) w.lastPane = null;
+  w.zoom = false; w.layout = null;
+}
+function killPane(s, w, id) {
+  const p = panes.get(id); stopProc(p);
+  if (leaves(w.root).length === 1) { destroyWindow(s, w); return; }
+  unlinkPane(w, id); panes.delete(id);
+  if (S.mode && S.mode.pid === id) S.mode = null;
+}
+function insertSplit(w, targetId, dir, newId, before = false) {
+  const path = pathTo(w.root, targetId), leaf = {t: 'p', id: newId};
+  const pair = before ? [leaf, {t: 'p', id: targetId}] : [{t: 'p', id: targetId}, leaf];
+  if (!path.length) w.root = {t: 's', dir, kids: pair, sizes: [.5, .5]};
+  else {
+    const {node, i} = path[path.length - 1];
+    if (node.dir === dir) { const h = node.sizes[i] / 2; node.sizes[i] = h; const at = before ? i : i + 1; node.kids.splice(at, 0, leaf); node.sizes.splice(at, 0, h); }
+    else node.kids[i] = {t: 's', dir, kids: pair, sizes: [.5, .5]};
+  }
+  w.layout = null; w.zoom = false;
+}
+function rects(n, x = 0, y = 0, wd = 1, ht = 1, o = []) {
+  if (n.t === 'p') { o.push({id: n.id, x, y, w: wd, h: ht}); return o; }
+  let off = 0;
+  n.kids.forEach((k, i) => { const s = n.sizes[i]; if (n.dir === 'h') rects(k, x + off * wd, y, s * wd, ht, o); else rects(k, x, y + off * ht, wd, s * ht, o); off += s; });
+  return o;
+}
+function neighbor(w, dir) {
+  const R = rects(w.root), a = R.find(r => r.id === w.active), e = 1e-4;
+  const ov = (a1, a2, b1, b2) => Math.min(a2, b2) - Math.max(a1, b1);
+  const vert = r => ov(r.y, r.y + r.h, a.y, a.y + a.h), horiz = r => ov(r.x, r.x + r.w, a.x, a.x + a.w);
+  let c = R.filter(r => r.id !== a.id && (
+    dir === 'L' ? Math.abs(r.x + r.w - a.x) < e && vert(r) > e :
+    dir === 'R' ? Math.abs(a.x + a.w - r.x) < e && vert(r) > e :
+    dir === 'U' ? Math.abs(r.y + r.h - a.y) < e && horiz(r) > e :
+                  Math.abs(a.y + a.h - r.y) < e && horiz(r) > e));
+  if (c.length) { const o = dir === 'L' || dir === 'R' ? vert : horiz; c.sort((p, q) => o(q) - o(p)); return c[0].id; }
+  c = R.filter(r => r.id !== a.id && ((dir === 'L' || dir === 'R') ? vert(r) > e : horiz(r) > e));
+  if (!c.length) return null;
+  const far = dir === 'L' ? r => r.x : dir === 'R' ? r => -r.x : dir === 'U' ? r => r.y : r => -r.y;
+  c.sort((p, q) => far(q) - far(p)); return c[0].id;
+}
+function resize(w, pid, dir, n) {
+  const axis = dir === 'L' || dir === 'R' ? 'h' : 'v', path = pathTo(w.root, pid); if (!path) return false;
+  for (let k = path.length - 1; k >= 0; k--) {
+    const {node, i} = path[k]; if (node.dir !== axis || node.kids.length < 2) continue;
+    const d = n * (axis === 'h' ? 1 / 80 : 1 / 24) * (dir === 'R' || dir === 'D' ? 1 : -1);
+    const [a, b] = i < node.kids.length - 1 ? [i, i + 1] : [i - 1, i];
+    let na = node.sizes[a] + d, nb = node.sizes[b] - d; const min = .08;
+    if (na < min) { nb -= min - na; na = min; } if (nb < min) { na -= min - nb; nb = min; }
+    node.sizes[a] = na; node.sizes[b] = nb; w.layout = null; return true;
+  }
+  return false;
+}
+const LAYOUTS = ['even-horizontal', 'even-vertical', 'main-horizontal', 'main-vertical', 'tiled'];
+function applyLayout(w, name) {
+  const ids = leaves(w.root), n = ids.length, L = id => ({t: 'p', id});
+  const even = (dir, arr) => arr.length === 1 ? L(arr[0]) : {t: 's', dir, kids: arr.map(L), sizes: arr.map(() => 1 / arr.length)};
+  let root;
+  if (!LAYOUTS.includes(name)) return false;
+  if (n === 1) root = L(ids[0]);
+  else if (name === 'even-horizontal') root = even('h', ids);
+  else if (name === 'even-vertical') root = even('v', ids);
+  else if (name === 'main-horizontal') root = {t: 's', dir: 'v', kids: [L(ids[0]), even('h', ids.slice(1))], sizes: [.6, .4]};
+  else if (name === 'main-vertical') root = {t: 's', dir: 'h', kids: [L(ids[0]), even('v', ids.slice(1))], sizes: [.5, .5]};
+  else { const cols = Math.ceil(Math.sqrt(n)), rows = []; for (let r = 0; r * cols < n; r++) rows.push(ids.slice(r * cols, (r + 1) * cols)); root = rows.length === 1 ? even('h', rows[0]) : {t: 's', dir: 'v', kids: rows.map(r => even('h', r)), sizes: rows.map(() => 1 / rows.length)}; }
+  w.root = root; w.layout = name; w.zoom = false; return true;
+}
+function swapPane(w, dir) {
+  const ids = leaves(w.root); if (ids.length < 2) return false;
+  const i = ids.indexOf(w.active), j = (i + (dir === 'U' ? -1 : 1) + ids.length) % ids.length;
+  const a = findLeaf(w.root, ids[i]), b = findLeaf(w.root, ids[j]); [a.id, b.id] = [b.id, a.id]; w.layout = null; return true;
+}
+
+/* ---------------- processes ---------------- */
+function startProc(p, name, interval, tick) {
+  const proc = {name, n: 0, timer: null};
+  proc.timer = setInterval(() => { if (!panes.has(p.id) || p.proc !== proc) { clearInterval(proc.timer); return; } proc.n++; const done = tick(proc); if (done) { clearInterval(proc.timer); p.proc = null; emit('proc-end', {name}); } scheduleRender(); }, interval);
+  p.proc = proc; emit('proc-start', {name});
+}
+function interrupt(p) {
+  const proc = p.proc; if (!proc) return;
+  clearInterval(proc.timer); p.proc = null; out(p, '^C');
+  if (proc.name === 'ping') { out(p, '--- example.com ping statistics ---'); out(p, `${proc.n} packets transmitted, ${proc.n} received, 0% packet loss`); }
+  emit('proc-stop', {name: proc.name});
+}
+const LOGS = ['INFO  GET /api/items 200 14ms', 'INFO  GET /health 200 1ms', 'WARN  retrying job 42 (attempt 2)', 'INFO  POST /api/login 200 31ms', 'ERROR payment webhook timeout', 'INFO  cache warmed in 220ms'];
+const BUILD = ['Installing dependencies...', 'Compiling 1/4 core', 'Compiling 2/4 api', 'Compiling 3/4 web', 'Compiling 4/4 cli', 'Running 128 tests... all passed', 'Build finished in 9s.'];
+
+/* ---------------- shell ---------------- */
+function tokenize(s) {
+  const o = []; let cur = '', q = null, has = false;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (q) { if (c === q) q = null; else if (c === '\\' && q === '"' && i + 1 < s.length) cur += s[++i]; else cur += c; continue; }
+    if (c === '"' || c === "'") { q = c; has = true; continue; }
+    if (c === '\\' && s[i + 1] === ';') { if (has) { o.push(cur); cur = ''; has = false; } o.push('\\;'); i++; continue; }
+    if (c === '\\' && i + 1 < s.length) { cur += s[++i]; has = true; continue; }
+    if (/\s/.test(c)) { if (has) { o.push(cur); cur = ''; has = false; } continue; }
+    cur += c; has = true;
+  }
+  if (has) o.push(cur);
+  return o;
+}
+function resolvePath(p, arg) {
+  if (!arg || arg === '~') return '~';
+  if (arg === '..') return p.cwd === '~' ? '~' : p.cwd.replace(/\/[^/]+$/, '');
+  if (arg.startsWith('~/')) return arg.replace(/\/$/, '');
+  if (arg.startsWith('/home/you')) return '~' + arg.slice(9).replace(/\/$/, '');
+  return (p.cwd + '/' + arg.replace(/^\.\//, '')).replace(/\/$/, '');
+}
+function paneKey(p, k, inside) {
+  if (!p) return;
+  if (p.proc) { if (k === 'C-c') interrupt(p); return; }
+  if (k === 'Enter') { const line = p.input; p.input = ''; p.hi = -1; runLine(p, line, inside); return; }
+  if (k === 'Backspace') { p.input = p.input.slice(0, -1); return; }
+  if (k === 'C-c') { out(p, promptOf(p) + p.input + '^C'); p.input = ''; return; }
+  if (k === 'C-u') { p.input = ''; return; }
+  if (k === 'C-l') { p.lines = []; return; }
+  if (k === 'C-d') { if (!p.input) runLine(p, 'exit', inside); return; }
+  if (k === 'Up') { if (p.hist.length) { p.hi = p.hi < 0 ? p.hist.length - 1 : Math.max(0, p.hi - 1); p.input = p.hist[p.hi]; } return; }
+  if (k === 'Down') { if (p.hi >= 0) { p.hi++; if (p.hi >= p.hist.length) { p.hi = -1; p.input = ''; } else p.input = p.hist[p.hi]; } return; }
+  if (k === 'Space') { p.input += ' '; return; }
+  if (k.length === 1) p.input += k;
+}
+function runLine(p, line, inside) {
+  out(p, promptOf(p) + line);
+  const t = line.trim(); if (!t) return;
+  p.hist.push(t);
+  const argv = tokenize(t), cmd = argv[0], args = argv.slice(1);
+  const w = inside ? (locate(p.id) || {}).w : null;
+  emit('shell', {cmd, line: t, inside, synced: !!(w && w.sync)});
+  switch (cmd) {
+    case 'tmux': return tmuxCli(args, p, inside, t);
+    case 'help': out(p, 'This practice shell understands: ls, cd, pwd, cat, echo, clear, date, whoami, hostname,\nping example.com, tail -f app.log, ./build.sh, seq 1 200, sleep 5, history, exit, and tmux.'); return;
+    case 'ls': { const d = resolvePath(p, args[0]); out(p, DIRS[d] ? DIRS[d].join('  ') : `ls: cannot access '${args[0]}': No such file or directory`); return; }
+    case 'cd': { const d = resolvePath(p, args[0]); if (DIRS[d]) p.cwd = d; else out(p, `bash: cd: ${args[0]}: No such file or directory`); return; }
+    case 'pwd': out(p, '/home/you' + p.cwd.slice(1)); return;
+    case 'cat': {
+      if (!args.length) { out(p, 'cat: give it a file, such as notes.txt'); return; }
+      for (const a of args) { const f = resolvePath(p, a);
+        if (f === '~/.tmux.conf') { if (saved.config) out(p, saved.config.replace(/\n+$/, '')); else out(p, 'cat: /home/you/.tmux.conf: No such file or directory'); continue; }
+        if (FILES[f]) out(p, FILES[f].join('\n')); else out(p, `cat: ${a}: No such file or directory`); }
+      return;
+    }
+    case 'echo': out(p, args.join(' ').replace(/\$TMUX\b|\$\{TMUX\}/g, inside ? '/tmp/tmux-1000/default,4242,0' : '').replace(/\$HOME/g, '/home/you').replace(/\$USER/g, 'you')); return;
+    case 'clear': p.lines = []; return;
+    case 'date': out(p, longDate(new Date())); return;
+    case 'whoami': out(p, 'you'); return;
+    case 'hostname': out(p, HOST); return;
+    case 'history': p.hist.forEach((h, i) => out(p, `${String(i + 1).padStart(5)}  ${h}`)); return;
+    case 'seq': { const a = +args[0] || 1, b = args[1] != null ? +args[1] : a; const lo = args[1] != null ? a : 1, hi = args[1] != null ? b : a; const n = Math.min(5000, Math.max(0, hi - lo + 1)); const lines = []; for (let i = 0; i < n; i++) lines.push(String(lo + i)); if (lines.length) out(p, lines.join('\n')); return; }
+    case 'ping': { const host = args.filter(a => !a.startsWith('-'))[0] || 'example.com'; out(p, `PING ${host} (93.184.215.14) 56(84) bytes of data.`);
+      startProc(p, 'ping', 1000, proc => { out(p, `64 bytes from ${host} (93.184.215.14): icmp_seq=${proc.n} ttl=56 time=${(11 + Math.random() * 7).toFixed(1)} ms`); }); return; }
+    case 'tail': {
+      const f = resolvePath(p, args.filter(a => !a.startsWith('-'))[0] || ''); if (!FILES[f]) { out(p, `tail: cannot open '${args[args.length - 1] || ''}' for reading: No such file or directory`); return; }
+      out(p, FILES[f].slice(-10).join('\n'));
+      if (args.includes('-f') && f === '~/app.log') startProc(p, 'tail', 1500, () => { const d = new Date(); out(p, `2026-11-03 ${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())} ${LOGS[Math.floor(Math.random() * LOGS.length)]}`); });
+      return;
+    }
+    case 'sleep': { const n = Math.min(60, Math.max(1, +args[0] || 1)); startProc(p, 'sleep', 1000, proc => proc.n >= n); return; }
+    case './build.sh': case 'sh': case 'bash': {
+      if (cmd !== './build.sh' && args[0] !== 'build.sh' && args[0] !== './build.sh') { out(p, cmd === 'bash' ? 'You are already in bash.' : 'sh: try sh build.sh'); return; }
+      if (p.cwd !== '~') { out(p, `bash: ${cmd === './build.sh' ? cmd : args[0]}: No such file or directory (it lives in ~)`); return; }
+      startProc(p, 'build.sh', 1100, proc => { out(p, BUILD[proc.n - 1]); return proc.n >= BUILD.length; }); return;
+    }
+    case 'unset': case 'export': if (args.join(' ').includes('TMUX')) { p.noTmuxEnv = cmd === 'unset'; } return;
+    case 'exit': case 'logout':
+      if (p === S.outer) { out(p, 'This is the trainer\'s own terminal, so it stays open.'); return; }
+      { const l = locate(p.id); if (l) { killPane(l.s, l.w, p.id); emit('kill-pane', {via: 'exit'}); } } return;
+    case 'vim': case 'vi': case 'nano': case 'htop': case 'top': case 'less': case 'emacs':
+      out(p, `${cmd} isn't simulated here. Try ping example.com, tail -f app.log, ./build.sh, or seq 1 200.`); return;
+    case 'man': out(p, 'The Reference tab has the tmux keys and commands. Real tmux: man tmux.'); return;
+    default: out(p, `bash: ${cmd}: command not found (type help)`);
+  }
+}
+function longDate(d) { const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'], mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; return `${days[d.getDay()]} ${mon[d.getMonth()]} ${String(d.getDate()).padStart(2)} ${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())} ${d.getFullYear()}`; }
+function tmuxCli(args, p, inside, line) {
+  if (!args.length) args = ['new-session'];
+  if (args[0] === '-V') { out(p, 'tmux 3.4'); return; }
+  if (inside && p.noTmuxEnv && /^(new|new-session|a|at|attach|attach-session)$/.test(args[0])) { out(p, 'In real tmux this would start tmux inside tmux (nesting). The trainer doesn\'t simulate nesting; you\'d press the prefix twice to reach the inner one.'); return; }
+  const name = ALIAS[args[0]] || args[0];
+  S.explain = {keys: 'Typed in the shell', cmd: line, desc: CMD_DESC[name] || ''};
+  exec(args, {from: 'cli', pane: p, inside});
+}
+
+/* ---------------- tmux commands ---------------- */
+const ALIAS = {new: 'new-session', a: 'attach-session', at: 'attach-session', attach: 'attach-session', detach: 'detach-client', ls: 'list-sessions', lsw: 'list-windows', lsp: 'list-panes', neww: 'new-window', killw: 'kill-window', renamew: 'rename-window', rename: 'rename-session', selectw: 'select-window', next: 'next-window', prev: 'previous-window', last: 'last-window', splitw: 'split-window', selectp: 'select-pane', lastp: 'last-pane', killp: 'kill-pane', kills: 'kill-session', resizep: 'resize-pane', swapp: 'swap-pane', swapw: 'swap-window', movew: 'move-window', breakp: 'break-pane', joinp: 'join-pane', selectl: 'select-layout', nextl: 'next-layout', displayp: 'display-panes', send: 'send-keys', set: 'set-option', setw: 'set-window-option', bind: 'bind-key', unbind: 'unbind-key', source: 'source-file', pasteb: 'paste-buffer', showb: 'show-buffer', lsk: 'list-keys', display: 'display-message', switchc: 'switch-client', has: 'has-session', clearhist: 'clear-history'};
+const CMD_DESC = {
+  'new-session': 'Create a new session.', 'attach-session': 'Connect this terminal to a running session.', 'detach-client': 'Leave tmux; the session keeps running in the background.',
+  'list-sessions': 'List every session on the tmux server.', 'kill-session': 'End a session and everything in it.', 'kill-server': 'Stop the tmux server and every session.',
+  'rename-session': 'Give the session a new name.', 'switch-client': 'Show a different session in this terminal.', 'new-window': 'Create a new window.',
+  'kill-window': 'Close a window and its panes.', 'rename-window': 'Give the window a new name.', 'select-window': 'Go to a window.', 'next-window': 'Go to the next window.',
+  'previous-window': 'Go to the previous window.', 'last-window': 'Go back to the window you used before.', 'list-windows': 'List the windows in the session.',
+  'split-window': 'Split the pane in two.', 'select-pane': 'Make another pane active.', 'last-pane': 'Go back to the previously active pane.', 'kill-pane': 'Close a pane.',
+  'resize-pane': 'Resize the pane, or zoom it with -Z.', 'swap-pane': 'Swap the pane with its neighbour.', 'break-pane': 'Move the pane into a window of its own.',
+  'join-pane': 'Move a pane from another window into this one.', 'select-layout': 'Rearrange panes into a preset layout.', 'next-layout': 'Move to the next preset layout.',
+  'display-panes': 'Show each pane\'s number for a moment.', 'send-keys': 'Type keys into a pane as if you had typed them.', 'set-option': 'Change a tmux option.',
+  'set-window-option': 'Change a window option.', 'bind-key': 'Bind a key to a command.', 'unbind-key': 'Remove a key binding.', 'source-file': 'Run every command in a file.',
+  'copy-mode': 'Freeze the pane so you can scroll, search, and copy.', 'paste-buffer': 'Paste the most recently copied text.', 'list-keys': 'List every key binding.',
+  'clock-mode': 'Show a big clock in the pane.', 'display-message': 'Show a message in the status line.', 'command-prompt': 'Open the prompt to type a tmux command.',
+  'choose-tree': 'Pick a session or window from a list.', 'show-buffer': 'Show the copied text.', 'move-window': 'Give a window a different number.', 'swap-window': 'Swap two windows\' numbers.',
+  'send-prefix': 'Send the prefix key to the program in the pane (used for tmux inside tmux).', 'list-panes': 'List the panes in the window.', 'has-session': 'Check whether a session exists.'
+};
+function say(ctx, text, isErr) {
+  if (ctx.from === 'cli') out(ctx.pane, text);
+  else if (ctx.from === 'config') { if (isErr) ctx.errors.push(text); }
+  else showMsg(text);
+}
+function sayList(ctx, lines) {
+  if (ctx.from === 'cli') { if (lines.length) out(ctx.pane, lines.join('\n')); }
+  else if (S.client && curP()) S.mode = {type: 'list', lines, top: 0, pid: curP().id};
+}
+function needServer(ctx) { if (!S.server) { say(ctx, 'no server running on /tmp/tmux-1000/default', true); return false; } return true; }
+function ctxSession(ctx) { if (ctx.from === 'cli' && !ctx.inside) return byId(S.lastSession) || S.sessions[S.sessions.length - 1] || null; return curS() || byId(S.lastSession); }
+function resolveTarget(t, ctx, kind = 'pane') {
+  let s = ctxSession(ctx);
+  if (t == null || t === '') { if (!s) return {err: S.server ? 'no current session' : 'no server running on /tmp/tmux-1000/default'}; const w = winOf(s); return {s, w, pid: w.active}; }
+  let sp = null, wp = null, pp = null; t = String(t);
+  const ci = t.indexOf(':');
+  if (ci >= 0) { sp = t.slice(0, ci); const rest = t.slice(ci + 1); const di = rest.lastIndexOf('.'); if (di >= 0 && kind === 'pane') { wp = rest.slice(0, di); pp = rest.slice(di + 1); } else wp = rest; }
+  else if (kind === 'pane' && t.includes('.')) { const di = t.lastIndexOf('.'); const head = t.slice(0, di); pp = t.slice(di + 1); if (head) { if (findSession(head)) sp = head; else wp = head; } }
+  else if (kind === 'session') sp = t;
+  else if (kind === 'pane' && /^([+-]?\d+|[+-])$/.test(t)) pp = t;
+  else if (findSession(t)) sp = t;
+  else wp = t;
+  if (sp) { s = findSession(sp); if (!s) return {err: `can't find session: ${sp}`}; }
+  if (!s) return {err: S.server ? 'no current session' : 'no server running on /tmp/tmux-1000/default'};
+  let w = winOf(s);
+  if (wp) {
+    const raw = wp.replace(/^=/, '');
+    if (raw === '!') w = s.windows.find(x => x.id === s.lastWin);
+    else if (raw === '+' || raw === '-') { const i = s.windows.indexOf(winOf(s)); w = s.windows[(i + (raw === '+' ? 1 : -1) + s.windows.length) % s.windows.length]; }
+    else if (/^\d+$/.test(raw)) w = s.windows.find(x => x.index === +raw);
+    else w = s.windows.find(x => dispName(x) === raw);
+    if (!w) return {err: `can't find window: ${wp}`};
+  }
+  let pid = w.active;
+  if (pp) {
+    const ids = leaves(w.root); let i = null;
+    if (pp === '+' || pp === '-') i = (ids.indexOf(w.active) + (pp === '+' ? 1 : -1) + ids.length) % ids.length;
+    else if (/^\d+$/.test(pp)) i = +pp - S.opts.paneBaseIndex;
+    if (i == null || i < 0 || i >= ids.length) return {err: `can't find pane: ${pp}`};
+    pid = ids[i];
+  }
+  return {s, w, pid};
+}
+function parseArgs(argv, vf) {
+  const f = {}, v = {}; let i = 0;
+  for (; i < argv.length; i++) {
+    const a = argv[i];
+    if (a === '--') { i++; break; }
+    if (a.length > 1 && a[0] === '-' && !/^-\d/.test(a)) {
+      for (let j = 1; j < a.length; j++) { const c = a[j]; if (vf.includes(c)) { v[c] = j < a.length - 1 ? a.slice(j + 1) : argv[++i]; break; } f[c] = true; }
+    } else break;
+  }
+  return {f, v, pos: argv.slice(i)};
+}
+function exec(input, ctx) {
+  const argv = Array.isArray(input) ? input : tokenize(input);
+  const groups = [[]];
+  for (const t of argv) { if (t === ';' || (ctx.splitEscaped && t === '\\;')) groups.push([]); else groups[groups.length - 1].push(t); }
+  let ok = true;
+  for (const g of groups) if (g.length) ok = runOne(g, ctx) && ok;
+  return ok;
+}
+function runOne(argv, ctx) {
+  const name = ALIAS[argv[0]] || argv[0], c = CMDS[name];
+  if (!c) { say(ctx, `unknown command: ${argv[0]}`, true); return false; }
+  const a = parseArgs(argv.slice(1), c.vf || '');
+  try { return c.run(a, ctx, name) !== false; } catch (e) { say(ctx, String(e.message || e), true); return false; }
+}
+function attach(s, ctx) {
+  if (S.client && S.client !== s.id) S.prevSession = S.client;
+  S.client = s.id; S.lastSession = s.id; S.mode = null; S.prefix = false;
+  emit('attached', {name: s.name, from: ctx.from});
+}
+function expand(str, ctx, target) {
+  const s = target ? target.s : (ctx ? ctxSession(ctx) : curS()), w = target ? target.w : winOf(s), p = target ? panes.get(target.pid) : (w ? panes.get(w.active) : null);
+  const d = new Date(), mon = d.toLocaleString('en', {month: 'short'}), day = d.toLocaleString('en', {weekday: 'short'});
+  const vars = {session_name: s && s.name, window_name: w && dispName(w), window_index: w && w.index, pane_index: w && p ? paneIdx(w, p.id) : '', pane_current_path: p ? p.cwd : '~', pane_title: HOST, host: HOST, host_short: HOST};
+  return String(str)
+    .replace(/#\[[^\]]*\]/g, '')
+    .replace(/#\{=(\d+):(\w+)\}/g, (m, n, k) => String(vars[k] ?? '').slice(0, +n))
+    .replace(/#\{(\w+)\}/g, (m, k) => vars[k] ?? '')
+    .replace(/#([SWIPHh])/g, (m, c) => ({S: vars.session_name, W: vars.window_name, I: vars.window_index, P: vars.pane_index, H: HOST, h: HOST}[c] ?? ''))
+    .replace(/%H/g, pad2(d.getHours())).replace(/%M/g, pad2(d.getMinutes())).replace(/%S/g, pad2(d.getSeconds()))
+    .replace(/%d/g, pad2(d.getDate())).replace(/%b/g, mon).replace(/%a/g, day).replace(/%y/g, String(d.getFullYear()).slice(2)).replace(/%Y/g, d.getFullYear());
+}
+function onoff(v, cur) { if (v === '' || v == null) return !cur; if (v === 'on') return true; if (v === 'off') return false; return null; }
+const COLOURS = {black: '#000000', red: '#d34f4f', green: '#52b35c', yellow: '#e3b93a', blue: '#4f7fe0', magenta: '#b25ccc', cyan: '#3fb2bf', white: '#e6e6e6', brightblack: '#555b63', default: 'transparent'};
+function colour(c) { if (!c) return null; if (COLOURS[c]) return COLOURS[c]; if (/^#[0-9a-f]{6}$/i.test(c)) return c; const m = /^colou?r(\d+)$/.exec(c); if (m) { const n = +m[1]; if (n >= 232) { const g = 8 + (n - 232) * 10; return `rgb(${g},${g},${g})`; } } return null; }
+function setOption(a, ctx, windowOpt) {
+  const name = a.pos[0]; let value = a.pos.slice(1).join(' ');
+  if (!name) { say(ctx, 'usage: set-option [-g] option [value]', true); return false; }
+  const O = S.opts, bad = () => { say(ctx, `invalid value for ${name}: ${value}`, true); return false; };
+  const int = () => { const n = parseInt(value, 10); return isNaN(n) ? null : n; };
+  if (a.f.u) value = '';
+  switch (name) {
+    case 'prefix': { const k = normKeyName(value); if (!k) return bad(); O.prefix = k; value = k; break; }
+    case 'mouse': { const v = onoff(value, O.mouse); if (v == null) return bad(); O.mouse = v; value = v ? 'on' : 'off'; break; }
+    case 'base-index': { const n = int(); if (n == null || n < 0) return bad(); O.baseIndex = n; break; }
+    case 'pane-base-index': { const n = int(); if (n == null || n < 0) return bad(); O.paneBaseIndex = n; break; }
+    case 'mode-keys': if (!['vi', 'emacs'].includes(value)) return bad(); O.modeKeys = value; break;
+    case 'status': { const v = onoff(value, O.status); if (v == null) return bad(); O.status = v; break; }
+    case 'status-position': if (!['top', 'bottom'].includes(value)) return bad(); O.statusPosition = value; break;
+    case 'status-style': for (const part of value.split(',')) { const [k, c] = part.split('='); if (k === 'bg' && colour(c)) O.statusBg = c; if (k === 'fg' && colour(c)) O.statusFg = c; } break;
+    case 'status-bg': if (!colour(value)) return bad(); O.statusBg = value; break;
+    case 'status-fg': if (!colour(value)) return bad(); O.statusFg = value; break;
+    case 'status-left': O.statusLeft = value; break;
+    case 'status-right': O.statusRight = value; break;
+    case 'history-limit': { const n = int(); if (n == null || n < 0) return bad(); O.historyLimit = n; break; }
+    case 'repeat-time': { const n = int(); if (n == null) return bad(); O.repeatTime = n; break; }
+    case 'display-panes-time': { const n = int(); if (n == null) return bad(); O.displayPanesTime = Math.max(300, n); break; }
+    case 'renumber-windows': { const v = onoff(value, O.renumber); if (v == null) return bad(); O.renumber = v; for (const s of S.sessions) renumber(s); break; }
+    case 'synchronize-panes': { const w = ctx.from === 'config' ? null : (resolveTarget(a.v.t, ctx, 'window').w || null); if (!w) { if (ctx.from === 'config') break; say(ctx, 'no current window', true); return false; } const v = onoff(value, w.sync); if (v == null) return bad(); w.sync = v; value = v ? 'on' : 'off'; break; }
+    case 'escape-time': case 'default-terminal': case 'set-clipboard': case 'focus-events': case 'display-time': case 'allow-rename': case 'automatic-rename':
+    case 'set-titles': case 'status-interval': case 'pane-active-border-style': case 'pane-border-style': case 'message-style': case 'mode-style': case 'window-status-current-style':
+    case 'window-status-style': case 'terminal-overrides': case 'aggressive-resize': case 'visual-activity': case 'monitor-activity': case 'status-justify': case 'prefix2': case 'default-shell': case 'word-separators': case 'status-left-length': case 'status-right-length': case 'clock-mode-colour':
+      break;
+    default: say(ctx, `invalid option: ${name}`, true); return false;
+  }
+  emit('option', {name, value}); return true;
+}
+const KEYNAME = {Enter: 'Enter', 'C-m': 'Enter', Escape: 'Escape', Space: 'Space', Tab: 'Tab', BSpace: 'Backspace', Up: 'Up', Down: 'Down', Left: 'Left', Right: 'Right', PageUp: 'PageUp', PPage: 'PageUp', PageDown: 'PageDown', NPage: 'PageDown', Home: 'Home', End: 'End'};
+function normKeyName(s) {
+  if (!s) return null; s = String(s).trim();
+  if (/^\^[A-Za-z]$/.test(s)) return 'C-' + s[1].toLowerCase();
+  let m = /^([CMS])-(.+)$/.exec(s);
+  if (m) { const base = normKeyName(m[2]); if (!base) return null; if (m[1] === 'S') return base; return (m[1] === 'C' ? 'C-' : 'M-') + (base.length === 1 ? (m[1] === 'C' ? base.toLowerCase() : base) : base); }
+  if (KEYNAME[s]) return KEYNAME[s];
+  if (s.length === 1) return s;
+  return null;
+}
+const CMDS = {
+  'new-session': {vf: 'snc', run(a, ctx) {
+    if (ctx.from === 'cli' && ctx.inside && !a.f.d) { say(ctx, 'sessions should be nested with care, unset $TMUX to force', true); return false; }
+    const name = a.v.s;
+    if (name != null && findExact(name)) { say(ctx, `duplicate session: ${name}`, true); return false; }
+    if (!S.server) startServer();
+    const s = makeSession(name != null ? String(name).replace(/[:.]/g, '_') : lowestName(), a.v.n); S.lastSession = s.id;
+    if (a.v.c) panes.get(winOf(s).active).cwd = resolvePath(newPaneStub(), a.v.c);
+    emit('session-created', {name: s.name, detached: !!a.f.d, from: ctx.from});
+    if (!a.f.d) attach(s, ctx);
+  }},
+  'attach-session': {vf: 't', run(a, ctx) {
+    if (ctx.from === 'cli' && ctx.inside) { say(ctx, 'sessions should be nested with care, unset $TMUX to force', true); return false; }
+    if (!needServer(ctx)) return false;
+    const s = a.v.t != null ? findSession(String(a.v.t).split(':')[0]) : (byId(S.lastSession) || S.sessions[S.sessions.length - 1]);
+    if (!s) { say(ctx, a.v.t != null ? `can't find session: ${a.v.t}` : 'no sessions', true); return false; }
+    attach(s, ctx);
+  }},
+  'detach-client': {run(a, ctx) {
+    const s = curS(); if (!s) { say(ctx, 'no current client', true); return false; }
+    S.client = null; S.prefix = false; S.mode = null;
+    out(S.outer, `[detached (from session ${s.name})]`);
+    emit('detached', {name: s.name, running: sessionRunning(s)});
+  }},
+  'list-sessions': {run(a, ctx) {
+    if (!needServer(ctx)) return false;
+    sayList(ctx, sorted().map(s => `${s.name}: ${s.windows.length} windows (created ${longDate(s.created)})${S.client === s.id ? ' (attached)' : ''}`));
+    emit('list-sessions', {from: ctx.from});
+  }},
+  'has-session': {vf: 't', run(a, ctx) { if (!S.server || !findSession(a.v.t)) { say(ctx, `can't find session: ${a.v.t}`, true); return false; } }},
+  'kill-session': {vf: 't', run(a, ctx) {
+    if (!needServer(ctx)) return false;
+    const s = a.v.t != null ? findSession(a.v.t) : ctxSession(ctx);
+    if (!s) { say(ctx, `can't find session: ${a.v.t}`, true); return false; }
+    const name = s.name; destroySession(s); emit('session-killed', {name});
+  }},
+  'kill-server': {run(a, ctx) {
+    if (!needServer(ctx)) return false;
+    const wasAttached = !!S.client;
+    for (const s of [...S.sessions]) destroySession(s, null);
+    if (wasAttached) out(S.outer, '[server exited]');
+  }},
+  'rename-session': {vf: 't', run(a, ctx) {
+    const s = a.v.t != null ? findSession(a.v.t) : ctxSession(ctx); if (!s) { say(ctx, `can't find session: ${a.v.t}`, true); return false; }
+    const n = a.pos.join(' ').trim(); if (!n) { say(ctx, 'usage: rename-session [-t target-session] new-name', true); return false; }
+    if (findExact(n) && findExact(n) !== s) { say(ctx, `duplicate session: ${n}`, true); return false; }
+    s.name = n; emit('rename-session', {name: n});
+  }},
+  'switch-client': {vf: 't', run(a, ctx) {
+    const s = curS(); if (!s) { say(ctx, 'no current client', true); return false; }
+    let t = null; const list = sorted();
+    if (a.f.n || a.f.p) { const i = list.indexOf(s); t = list[(i + (a.f.n ? 1 : -1) + list.length) % list.length]; }
+    else if (a.f.l) t = byId(S.prevSession);
+    else if (a.v.t) { const r = resolveTarget(a.v.t, ctx, 'window'); if (r.err) { say(ctx, r.err, true); return false; } t = r.s; if (r.w) selectWin(r.s, r.w); }
+    if (!t) { say(ctx, 'no other session', true); return false; }
+    attach(t, ctx); emit('switch', {name: t.name, how: a.f.n ? 'next' : a.f.p ? 'prev' : 'target'});
+  }},
+  'new-window': {vf: 'ntc', run(a, ctx) {
+    if (!needServer(ctx)) return false;
+    let s = ctxSession(ctx); if (a.v.t) { const r = resolveTarget(String(a.v.t).split(':')[0] || '', ctx, 'session'); if (!r.err) s = r.s; }
+    if (!s) { say(ctx, 'no current session', true); return false; }
+    const p = newPane(a.v.c ? resolvePath(newPaneStub(), expand(a.v.c, ctx)) : '~');
+    const w = makeWindow(s, a.v.n, p, {select: !a.f.d}); emit('new-window', {index: w.index, from: ctx.from});
+  }},
+  'kill-window': {vf: 't', run(a, ctx) { const r = resolveTarget(a.v.t, ctx, 'window'); if (r.err) { say(ctx, r.err, true); return false; } destroyWindow(r.s, r.w); emit('kill-window', {}); }},
+  'rename-window': {vf: 't', run(a, ctx) {
+    const r = resolveTarget(a.v.t, ctx, 'window'); if (r.err) { say(ctx, r.err, true); return false; }
+    const n = a.pos.join(' ').trim(); if (!n) { say(ctx, 'usage: rename-window [-t target-window] new-name', true); return false; }
+    r.w.name = n; r.w.auto = false; emit('rename-window', {name: n});
+  }},
+  'select-window': {vf: 't', run(a, ctx) { const r = resolveTarget(a.v.t, ctx, 'window'); if (r.err) { say(ctx, r.err, true); return false; } selectWin(r.s, r.w); emit('select-window', {how: ctx.how || 'target', index: r.w.index}); }},
+  'next-window': {run(a, ctx) { return stepWindow(ctx, 1); }},
+  'previous-window': {run(a, ctx) { return stepWindow(ctx, -1); }},
+  'last-window': {run(a, ctx) { const s = ctxSession(ctx); const w = s && s.windows.find(x => x.id === s.lastWin); if (!w) { say(ctx, 'no last window', true); return false; } selectWin(s, w); emit('select-window', {how: 'last', index: w.index}); }},
+  'list-windows': {vf: 't', run(a, ctx) { const s = a.v.t ? findSession(a.v.t) : ctxSession(ctx); if (!s) { say(ctx, 'no current session', true); return false; } sayList(ctx, s.windows.map(w => `${w.index}: ${dispName(w)}${winFlags(s, w)} (${leaves(w.root).length} panes) [80x24]${w.id === s.cur ? ' (active)' : ''}`)); }},
+  'move-window': {vf: 'st', run(a, ctx) {
+    const s = ctxSession(ctx); if (!s) { say(ctx, 'no current session', true); return false; }
+    if (a.f.r) { s.windows.sort((x, y) => x.index - y.index).forEach((w, i) => w.index = S.opts.baseIndex + i); return; }
+    const w = a.v.s ? resolveTarget(a.v.s, ctx, 'window').w : winOf(s); const to = parseInt(String(a.v.t || '').replace(/^.*:/, ''), 10);
+    if (!w || isNaN(to)) { say(ctx, 'usage: move-window [-r] [-s src-window] -t dst-window', true); return false; }
+    if (s.windows.some(x => x.index === to && x !== w)) { say(ctx, `index in use: ${to}`, true); return false; }
+    w.index = to; s.windows.sort((x, y) => x.index - y.index); emit('move-window', {index: to});
+  }},
+  'swap-window': {vf: 'st', run(a, ctx) {
+    const s = ctxSession(ctx); const src = a.v.s ? resolveTarget(a.v.s, ctx, 'window') : {s, w: winOf(s)}; const dst = resolveTarget(a.v.t, ctx, 'window');
+    if (!src.w || dst.err) { say(ctx, dst.err || "can't find window", true); return false; }
+    [src.w.index, dst.w.index] = [dst.w.index, src.w.index]; s.windows.sort((x, y) => x.index - y.index); emit('swap-window', {});
+  }},
+  'split-window': {vf: 'tcl', run(a, ctx) {
+    const r = resolveTarget(a.v.t, ctx, 'pane'); if (r.err) { say(ctx, r.err, true); return false; }
+    const dir = a.f.h ? 'h' : 'v';
+    const p = newPane(a.v.c ? resolvePath(newPaneStub(), expand(a.v.c, ctx, r)) : '~');
+    insertSplit(r.w, r.pid, dir, p.id, !!a.f.b);
+    if (!a.f.d) { r.w.lastPane = r.w.active; r.w.active = p.id; }
+    emit('split', {dir, from: ctx.from});
+  }},
+  'select-pane': {vf: 't', run(a, ctx) {
+    const r = resolveTarget(a.v.t, ctx, 'pane'); if (r.err) { say(ctx, r.err, true); return false; }
+    const w = r.w, d = ['U', 'D', 'L', 'R'].find(x => a.f[x]); let id = r.pid;
+    if (d) { w.zoom = false; id = neighbor(w, d) || w.active; }
+    if (id !== w.active) { w.lastPane = w.active; w.active = id; }
+    selectWin(r.s, w);
+    emit('select-pane', {how: ctx.how || (d ? 'dir' : 'target'), dir: d});
+  }},
+  'last-pane': {run(a, ctx) { const w = resolveTarget(null, ctx, 'window').w; if (!w || !w.lastPane || !leaves(w.root).includes(w.lastPane)) { say(ctx, 'no last pane', true); return false; } [w.active, w.lastPane] = [w.lastPane, w.active]; w.zoom = false; emit('select-pane', {how: 'last'}); }},
+  'kill-pane': {vf: 't', run(a, ctx) { const r = resolveTarget(a.v.t, ctx, 'pane'); if (r.err) { say(ctx, r.err, true); return false; } killPane(r.s, r.w, r.pid); emit('kill-pane', {via: ctx.via || 'command'}); }},
+  'resize-pane': {vf: 'txy', run(a, ctx) {
+    const r = resolveTarget(a.v.t, ctx, 'pane'); if (r.err) { say(ctx, r.err, true); return false; }
+    if (a.f.Z) { if (leaves(r.w.root).length < 2) return true; r.w.zoom = !r.w.zoom; emit('zoom', {on: r.w.zoom}); return true; }
+    const d = ['U', 'D', 'L', 'R'].find(x => a.f[x]); if (!d) return true;
+    const n = Math.max(1, parseInt(a.pos[0] || '1', 10) || 1); r.w.zoom = false;
+    if (resize(r.w, r.pid, d, n)) emit('resize', {dir: d, n});
+  }},
+  'swap-pane': {vf: 'st', run(a, ctx) { const w = resolveTarget(null, ctx, 'window').w; if (w && swapPane(w, a.f.U ? 'U' : 'D')) emit('swap', {dir: a.f.U ? 'U' : 'D'}); }},
+  'break-pane': {vf: 'tsn', run(a, ctx) {
+    const r = resolveTarget(a.v.s || a.v.t, ctx, 'pane'); if (r.err) { say(ctx, r.err, true); return false; }
+    if (leaves(r.w.root).length < 2) { say(ctx, "can't break with only one pane", true); return false; }
+    unlinkPane(r.w, r.pid);
+    const nw = makeWindow(r.s, a.v.n, panes.get(r.pid), {select: !a.f.d}); emit('break', {index: nw.index});
+  }},
+  'join-pane': {vf: 'stl', run(a, ctx) {
+    const src = resolveTarget(a.v.s, ctx, 'pane'); if (src.err) { say(ctx, src.err, true); return false; }
+    const dst = resolveTarget(a.v.t, ctx, 'pane'); if (dst.err) { say(ctx, dst.err, true); return false; }
+    if (src.pid === dst.pid) { say(ctx, 'source and target panes must be different', true); return false; }
+    if (leaves(src.w.root).length === 1) { removeWindow(src.s, src.w); if (!src.s.windows.length && src.s !== dst.s) { S.sessions = S.sessions.filter(x => x !== src.s); } }
+    else unlinkPane(src.w, src.pid);
+    insertSplit(dst.w, dst.pid, a.f.h ? 'h' : 'v', src.pid, !!a.f.b);
+    if (!a.f.d) { dst.w.lastPane = dst.w.active; dst.w.active = src.pid; }
+    selectWin(dst.s, dst.w); emit('join', {});
+  }},
+  'select-layout': {vf: 't', run(a, ctx) { const r = resolveTarget(a.v.t, ctx, 'window'); if (r.err) { say(ctx, r.err, true); return false; } const n = a.pos[0]; if (!applyLayout(r.w, n)) { say(ctx, `unknown layout: ${n || ''}`, true); return false; } emit('layout', {name: n, how: ctx.how || 'command'}); }},
+  'next-layout': {run(a, ctx) { const w = resolveTarget(null, ctx, 'window').w; if (!w) return false; const n = LAYOUTS[(LAYOUTS.indexOf(w.layout) + 1) % LAYOUTS.length]; applyLayout(w, n); emit('layout', {name: n, how: 'next'}); showMsg(`layout: ${n}`); }},
+  'display-panes': {run(a, ctx) { if (!S.client) return false; const until = Date.now() + S.opts.displayPanesTime; S.mode = {type: 'panes', until}; setTimeout(() => { if (S.mode && S.mode.type === 'panes' && S.mode.until === until) { S.mode = null; render(); } }, S.opts.displayPanesTime + 30); emit('display-panes', {}); }},
+  'send-keys': {vf: 't', run(a, ctx) {
+    const r = resolveTarget(a.v.t, ctx, 'pane'); if (r.err) { say(ctx, r.err, true); return false; }
+    const p = panes.get(r.pid);
+    for (const k of a.pos) { if (!a.f.l && (KEYNAME[k] || /^C-[a-z]$/.test(k))) paneKey(p, KEYNAME[k] || k, true); else for (const ch of k) paneKey(p, ch === ' ' ? 'Space' : ch, true); }
+    emit('send-keys', {text: a.pos.join(' ')});
+  }},
+  'send-prefix': {run() { showMsg('Sent the prefix to the program in this pane'); }},
+  'set-option': {vf: 't', run(a, ctx) { return setOption(a, ctx, false); }},
+  'set-window-option': {vf: 't', run(a, ctx) { return setOption(a, ctx, true); }},
+  'bind-key': {vf: 'TN', run(a, ctx) {
+    const [key, ...cmd] = a.pos, k = normKeyName(key);
+    if (!k || !cmd.length) { say(ctx, 'usage: bind-key [-nr] [-T key-table] key command [arguments]', true); return false; }
+    const table = a.f.n ? 'root' : (a.v.T || 'prefix');
+    if (table !== 'root' && table !== 'prefix') return true;
+    S.custom[table + ':' + k] = {argv: cmd, repeat: !!a.f.r}; S.unbound.delete(table + ':' + k);
+    emit('bind', {key: k, table});
+  }},
+  'unbind-key': {vf: 'T', run(a, ctx) {
+    if (a.f.a) { S.custom = {}; for (const k of Object.keys(DEFAULT_BINDS)) S.unbound.add('prefix:' + k); return true; }
+    const k = normKeyName(a.pos[0]); if (!k) { say(ctx, 'usage: unbind-key [-an] [-T key-table] key', true); return false; }
+    const table = a.f.n ? 'root' : (a.v.T || 'prefix'); delete S.custom[table + ':' + k]; S.unbound.add(table + ':' + k);
+  }},
+  'source-file': {run(a, ctx) {
+    const path = a.pos[0] || '';
+    if (!/^(~\/|\/home\/you\/)?\.tmux\.conf$/.test(path)) { say(ctx, `${path}: No such file or directory`, true); return false; }
+    if (!saved.config) { say(ctx, 'No ~/.tmux.conf yet. Make one in the Config builder tab and choose Use in trainer.', true); return false; }
+    const errs = runConfig();
+    if (errs.length) say(ctx, errs[0], true);
+    emit('source', {errors: errs.length});
+  }},
+  'copy-mode': {run(a, ctx) { enterCopy(!!a.f.u); }},
+  'paste-buffer': {run(a, ctx) { const p = curP(); if (!S.buffer) { say(ctx, 'no buffers', true); return false; } for (const ch of S.buffer) paneKey(p, ch === '\n' ? 'Enter' : ch === ' ' ? 'Space' : ch, true); emit('paste', {text: S.buffer}); }},
+  'show-buffer': {run(a, ctx) { if (!S.buffer) { say(ctx, 'no buffers', true); return false; } sayList(ctx, S.buffer.split('\n')); }},
+  'list-keys': {run(a, ctx) { sayList(ctx, keyListLines()); emit('list-keys', {}); }},
+  'list-panes': {run(a, ctx) { const w = resolveTarget(null, ctx, 'window').w; if (!w) return false; sayList(ctx, leaves(w.root).map((id, i) => `${i + S.opts.paneBaseIndex}: [80x24] %${id}${id === w.active ? ' (active)' : ''}`)); }},
+  'clock-mode': {run() { if (!S.client) return false; S.mode = {type: 'clock', pid: curP().id}; emit('clock', {}); }},
+  'display-message': {vf: 'tc', run(a, ctx) { const t = expand(a.pos.join(' ') || '[#S] #I:#P "#W"', ctx); if (a.f.p || !S.client) { if (ctx.from === 'cli') out(ctx.pane, t); else if (ctx.from !== 'config') showMsg(t); } else showMsg(t); }},
+  'command-prompt': {vf: 'Ipt', run(a, ctx) {
+    const tpl = a.pos[0] || null;
+    S.mode = {type: 'prompt', label: a.v.p ? `(${a.v.p}) ` : tpl ? `(${tokenize(tpl)[0]}) ` : ':', value: a.v.I ? expand(a.v.I, ctx) : '', template: tpl, hi: -1};
+  }},
+  'confirm-before': {vf: 'pt', run(a, ctx) { S.mode = {type: 'confirm', text: expand(a.v.p || `${a.pos[0]}? (y/n)`, ctx), argv: a.pos}; }},
+  'choose-tree': {vf: 'tF', run(a, ctx) { openTree(a.f.s ? 's' : 'w'); emit('choose-tree', {}); }},
+  'refresh-client': {run() {}},
+  'start-server': {run() { if (!S.server) startServer(); }},
+  'clear-history': {run() { const p = curP(); if (p) p.lines = []; }},
+};
+function newPaneStub() { const p = curP(); return {cwd: p ? p.cwd : '~'}; }
+function stepWindow(ctx, d) {
+  const s = ctxSession(ctx); if (!s) { say(ctx, 'no current session', true); return false; }
+  if (s.windows.length < 2) { say(ctx, d > 0 ? 'no next window' : 'no previous window', true); return false; }
+  const i = s.windows.indexOf(winOf(s)), w = s.windows[(i + d + s.windows.length) % s.windows.length];
+  selectWin(s, w); emit('select-window', {how: d > 0 ? 'next' : 'prev', index: w.index}); return true;
+}
+function runConfig() {
+  const errors = [], ctx = {from: 'config', errors, splitEscaped: false};
+  saved.config.split('\n').forEach((l, i) => {
+    const t = l.trim(); if (!t || t.startsWith('#')) return;
+    const before = errors.length; exec(t, ctx);
+    if (errors.length > before) errors[errors.length - 1] = `~/.tmux.conf:${i + 1}: ${errors[errors.length - 1]}`;
+  });
+  return errors;
+}
+
+/* ---------------- key bindings ---------------- */
+const DEFAULT_BINDS = {
+  'C-b': ['send-prefix', 'Send Ctrl+b to the program in the pane'],
+  '%': ['split-window -h', 'Split the pane into left and right halves'],
+  '"': ['split-window -v', 'Split the pane into top and bottom halves'],
+  'o': ['select-pane -t :.+', 'Go to the next pane', 'next'],
+  ';': ['last-pane', 'Go back to the previously active pane'],
+  'Up': ['select-pane -U', 'Go to the pane above', 'dir', 1], 'Down': ['select-pane -D', 'Go to the pane below', 'dir', 1],
+  'Left': ['select-pane -L', 'Go to the pane on the left', 'dir', 1], 'Right': ['select-pane -R', 'Go to the pane on the right', 'dir', 1],
+  'q': ['display-panes', 'Show pane numbers; press a number to jump to that pane'],
+  'z': ['resize-pane -Z', 'Zoom the pane to fill the window, or unzoom it'],
+  'x': ['confirm-before -p "kill-pane #P? (y/n)" kill-pane', 'Close the pane after you confirm with y'],
+  '!': ['break-pane', 'Move the pane into its own new window'],
+  '{': ['swap-pane -U', 'Swap the pane with the previous one'], '}': ['swap-pane -D', 'Swap the pane with the next one'],
+  'Space': ['next-layout', 'Rearrange the panes into the next preset layout'],
+  'M-1': ['select-layout even-horizontal', 'Put every pane side by side'], 'M-2': ['select-layout even-vertical', 'Stack every pane top to bottom'],
+  'M-3': ['select-layout main-horizontal', 'One big pane on top, the rest below'], 'M-4': ['select-layout main-vertical', 'One big pane on the left, the rest stacked on the right'],
+  'M-5': ['select-layout tiled', 'Arrange the panes in a grid'],
+  'C-Up': ['resize-pane -U', 'Move the border up one row', null, 1], 'C-Down': ['resize-pane -D', 'Move the border down one row', null, 1],
+  'C-Left': ['resize-pane -L', 'Move the border left one column', null, 1], 'C-Right': ['resize-pane -R', 'Move the border right one column', null, 1],
+  'M-Up': ['resize-pane -U 5', 'Move the border up five rows', null, 1], 'M-Down': ['resize-pane -D 5', 'Move the border down five rows', null, 1],
+  'M-Left': ['resize-pane -L 5', 'Move the border left five columns', null, 1], 'M-Right': ['resize-pane -R 5', 'Move the border right five columns', null, 1],
+  'c': ['new-window', 'Create a new window'],
+  ',': ['command-prompt -I "#W" "rename-window \'%%\'"', 'Rename the current window'],
+  '&': ['confirm-before -p "kill-window #W? (y/n)" kill-window', 'Close the window after you confirm with y'],
+  'n': ['next-window', 'Go to the next window', 'next'], 'p': ['previous-window', 'Go to the previous window', 'prev'],
+  'l': ['last-window', 'Go back to the window you used before', 'last'],
+  'w': ['choose-tree -Zw', 'Pick a window from a tree of sessions and windows', 'tree'],
+  's': ['choose-tree -Zs', 'Pick a session from a list', 'tree'],
+  '$': ['command-prompt -I "#S" "rename-session \'%%\'"', 'Rename the current session'],
+  '(': ['switch-client -p', 'Switch to the previous session'], ')': ['switch-client -n', 'Switch to the next session'],
+  'd': ['detach-client', 'Detach: leave tmux running in the background'],
+  ':': ['command-prompt', 'Open the tmux command prompt'],
+  '[': ['copy-mode', 'Enter copy mode to scroll, search, and copy'],
+  ']': ['paste-buffer', 'Paste the most recently copied text'],
+  'PageUp': ['copy-mode -u', 'Enter copy mode and scroll up a page'],
+  '?': ['list-keys', 'List every key binding'],
+  't': ['clock-mode', 'Show a big clock'],
+};
+for (let i = 0; i <= 9; i++) DEFAULT_BINDS[String(i)] = [`select-window -t :=${i}`, `Go to window ${i}`, 'index'];
+function lookup(table, k) {
+  const c = S.custom[table + ':' + k]; if (c) return {argv: c.argv, text: joinArgv(c.argv), repeat: c.repeat, custom: true, desc: table === 'root' ? 'Your own no-prefix binding' : 'Your own binding'};
+  if (table !== 'prefix' || S.unbound.has('prefix:' + k)) return null;
+  const d = DEFAULT_BINDS[k]; if (!d) return null;
+  return {argv: tokenize(d[0]), text: d[0], how: d[2] || null, repeat: !!d[3], desc: d[1]};
+}
+function joinArgv(argv) { return argv.map(t => /[\s"#]/.test(t) && t !== '\\;' ? `"${t.replace(/"/g, '\\"')}"` : t).join(' '); }
+function keyListLines() {
+  const lines = [];
+  for (const [k, c] of Object.entries(S.custom)) { const [table, key] = [k.slice(0, k.indexOf(':')), k.slice(k.indexOf(':') + 1)]; lines.push(`bind-key ${c.repeat ? '-r ' : '   '}-T ${table.padEnd(6)} ${key.padEnd(8)} ${joinArgv(c.argv)}`); }
+  for (const [k, d] of Object.entries(DEFAULT_BINDS)) if (!S.custom['prefix:' + k] && !S.unbound.has('prefix:' + k)) lines.push(`bind-key ${d[3] ? '-r ' : '   '}-T prefix ${k.padEnd(8)} ${d[0]}`);
+  return lines;
+}
+function runBinding(b, keys, k) {
+  const name = ALIAS[b.argv[0]] || b.argv[0];
+  S.explain = {keys, cmd: b.text, desc: b.desc || CMD_DESC[name] || ''};
+  exec(b.argv, {from: 'key', how: b.how, via: 'key', splitEscaped: true});
+  if (b.custom) emit('bind-used', {key: k});
+  if (b.repeat) S.repeatUntil = Date.now() + S.opts.repeatTime;
+}
+
+/* ---------------- modes ---------------- */
+function enterCopy(pageUp) {
+  const p = curP(); if (!p) return;
+  if (S.mode && S.mode.type === 'copy' && S.mode.pid === p.id) { if (pageUp) S.mode.row = Math.max(0, S.mode.row - visRows(p.id)); return; }
+  const lines = [...p.lines, promptOf(p) + p.input];
+  S.mode = {type: 'copy', pid: p.id, lines, row: lines.length - 1, col: Math.min(lines[lines.length - 1].length, (promptOf(p) + p.input).length), sel: null, top: null};
+  if (pageUp) S.mode.row = Math.max(0, S.mode.row - visRows(p.id));
+  emit('copy-enter', {});
+}
+function visRows(pid) { const w = curW(); if (!w) return 10; const r = (w.zoom ? [{id: w.active, h: 1}] : rects(w.root)).find(x => x.id === pid); return Math.max(1, Math.floor((r ? r.h : 1) * S.areaH / LH)); }
+function selOrder(m) { if (!m.sel) return null; const a = m.sel, b = {r: m.row, c: m.col}; return (a.r < b.r || (a.r === b.r && a.c <= b.c)) ? [a, b] : [b, a]; }
+function copyText(m) {
+  const o = selOrder(m); if (!o) return '';
+  const [a, b] = o, L = m.lines; const parts = [];
+  for (let r = a.r; r <= b.r; r++) { const line = L[r] || ''; const s = r === a.r ? a.c : 0, e = r === b.r ? b.c + 1 : line.length; parts.push(line.slice(s, e)); }
+  return parts.join('\n');
+}
+function search(m, term, dir) {
+  if (!term) return false;
+  const L = m.lines; S.lastSearch = {term, dir};
+  // tmux wraps searches around the top and bottom by default (wrap-search on).
+  for (let step = 1; step <= L.length; step++) {
+    const r = ((dir === 'up' ? m.row - step : m.row + step) % L.length + L.length) % L.length;
+    const c = L[r].indexOf(term); if (c >= 0) { m.row = r; m.col = c; emit('copy-search', {found: true}); return true; }
+  }
+  showMsg(`Search failed: "${term}"`); emit('copy-search', {found: false}); return false;
+}
+function copyKey(k) {
+  const m = S.mode, L = m.lines, vis = visRows(m.pid);
+  const len = () => (L[m.row] || '').length;
+  const clamp = () => { m.row = Math.max(0, Math.min(L.length - 1, m.row)); m.col = Math.max(0, Math.min(Math.max(0, len() - 1), m.col)); };
+  switch (k) {
+    case 'Up': case 'k': m.row--; break;
+    case 'Down': case 'j': m.row++; break;
+    case 'Left': case 'h': m.col--; break;
+    case 'Right': case 'l': m.col++; break;
+    case 'PageUp': case 'C-u': case 'M-v': m.row -= k === 'C-u' ? Math.floor(vis / 2) : vis; break;
+    case 'PageDown': case 'C-d': case 'C-f': case 'C-v': m.row += k === 'C-d' ? Math.floor(vis / 2) : vis; break;
+    case 'g': case 'M-<': m.row = 0; m.col = 0; break;
+    case 'G': case 'M->': m.row = L.length - 1; break;
+    case '0': case 'Home': case 'C-a': m.col = 0; break;
+    case '$': case 'End': case 'C-e': m.col = len() - 1; break;
+    case 'w': { const line = L[m.row] || ''; const re = /\s\S/g; re.lastIndex = m.col; const x = re.exec(line); if (x) m.col = x.index + 1; else if (m.row < L.length - 1) { m.row++; m.col = 0; } break; }
+    case 'b': { const line = L[m.row] || ''; let c = m.col - 1; while (c > 0 && line[c] === ' ') c--; while (c > 0 && line[c - 1] !== ' ') c--; m.col = Math.max(0, c); break; }
+    case 'Space': case 'C-Space': m.sel = {r: m.row, c: m.col}; emit('copy-select', {}); break;
+    case 'Enter': case 'M-w': case 'C-w': {
+      const t = copyText(m); S.mode = null;
+      if (t) { S.buffer = t; S.explain = {keys: label(k), cmd: 'copy-selection-and-cancel', desc: `Copied ${t.length} character${t.length === 1 ? '' : 's'} into the paste buffer. Paste with Prefix ].`}; emit('copy-done', {text: t}); }
+      emit('copy-exit', {}); return;
+    }
+    case 'Escape': if (m.sel) { m.sel = null; break; } S.mode = null; emit('copy-exit', {}); return;
+    case 'q': case 'C-c': case 'C-g': S.mode = null; emit('copy-exit', {}); return;
+    case '?': case 'C-r': S.mode = {type: 'prompt', label: '(search up) ', value: '', search: 'up', prev: m}; return;
+    case '/': case 'C-s': S.mode = {type: 'prompt', label: '(search down) ', value: '', search: 'down', prev: m}; return;
+    case 'n': if (S.lastSearch) search(m, S.lastSearch.term, S.lastSearch.dir); break;
+    case 'N': if (S.lastSearch) { search(m, S.lastSearch.term, S.lastSearch.dir === 'up' ? 'down' : 'up'); S.lastSearch.dir = S.lastSearch.dir === 'up' ? 'down' : 'up'; } break;
+    default: return;
+  }
+  clamp();
+}
+function openTree(kind) {
+  if (!S.client) return;
+  const items = []; const cs = curS();
+  sorted().forEach(s => {
+    items.push({s, label: `${kind === 'w' ? '-' : '+'} ${s.name}: ${s.windows.length} windows${S.client === s.id ? ' (attached)' : ''}`});
+    if (kind === 'w') s.windows.forEach((w, i) => items.push({s, w, label: `${i === s.windows.length - 1 ? '└─>' : '├─>'} ${w.index}: ${dispName(w)}${winFlags(s, w)}`}));
+  });
+  let idx = items.findIndex(it => kind === 'w' ? it.w && it.w.id === cs.cur && it.s === cs : it.s === cs);
+  S.mode = {type: 'tree', kind, items, idx: Math.max(0, idx)};
+}
+function chooseTree(it) {
+  S.mode = null;
+  const from = curS(); if (it.s !== from) attach(it.s, {from: 'key'});
+  if (it.w) selectWin(it.s, it.w);
+  emit('switch', {name: it.s.name, how: 'tree'}); if (it.w) emit('select-window', {how: 'tree', index: it.w.index});
+}
+function modeKey(k) {
+  const m = S.mode;
+  if (m.type === 'prompt') {
+    if (k === 'Enter') {
+      S.mode = m.prev || null; const v = m.value;
+      if (m.search) { if (S.mode) search(S.mode, v, m.search); return; }
+      if (m.template) { const argv = tokenize(m.template).map(t => t.replace(/%%/g, v)); S.explain = {keys: 'Prompt', cmd: joinArgv(argv), desc: CMD_DESC[ALIAS[argv[0]] || argv[0]] || ''}; exec(argv, {from: 'prompt'}); return; }
+      if (v.trim()) { S.promptHist.push(v); const name = ALIAS[tokenize(v)[0]] || tokenize(v)[0]; S.explain = {keys: 'Command prompt', cmd: v, desc: CMD_DESC[name] || ''}; exec(v, {from: 'prompt'}); emit('command', {text: v}); }
+      return;
+    }
+    if (k === 'Escape' || k === 'C-c' || k === 'C-g') { S.mode = m.prev || null; return; }
+    if (k === 'Backspace') { if (!m.value && !m.template) { S.mode = m.prev || null; return; } m.value = m.value.slice(0, -1); return; }
+    if (k === 'C-u') { m.value = ''; return; }
+    if (k === 'Up' && S.promptHist.length && !m.search) { m.hi = m.hi < 0 ? S.promptHist.length - 1 : Math.max(0, m.hi - 1); m.value = S.promptHist[m.hi]; return; }
+    if (k === 'Down' && m.hi >= 0) { m.hi++; m.value = m.hi < S.promptHist.length ? S.promptHist[m.hi] : ''; if (m.hi >= S.promptHist.length) m.hi = -1; return; }
+    if (k === 'Space') m.value += ' '; else if (k.length === 1) m.value += k;
+    return;
+  }
+  if (m.type === 'confirm') { S.mode = null; if (k === 'y' || k === 'Y') exec(m.argv, {from: 'key', via: 'key'}); else S.explain = {keys: label(k), cmd: '(cancelled)', desc: 'Only y confirms. Nothing was closed.'}; return; }
+  if (m.type === 'tree') {
+    if (k === 'Up' || k === 'k') m.idx = Math.max(0, m.idx - 1);
+    else if (k === 'Down' || k === 'j') m.idx = Math.min(m.items.length - 1, m.idx + 1);
+    else if (k === 'Enter') chooseTree(m.items[m.idx]);
+    else if (/^[0-9]$/.test(k)) { const it = m.items[+k]; if (it) chooseTree(it); }
+    else if (k === 'q' || k === 'Escape' || k === 'C-c') S.mode = null;
+    return;
+  }
+  if (m.type === 'panes') {
+    S.mode = null;
+    if (/^[0-9]$/.test(k)) { const w = curW(), ids = leaves(w.root), i = +k - S.opts.paneBaseIndex; if (ids[i]) { if (ids[i] !== w.active) { w.lastPane = w.active; w.active = ids[i]; } w.zoom = false; S.explain = {keys: label(k), cmd: `select-pane -t ${k}`, desc: `Went to pane ${k}.`}; emit('select-pane', {how: 'number'}); } }
+    return;
+  }
+  if (m.type === 'clock') { S.mode = null; emit('clock-exit', {}); return; }
+  if (m.type === 'list') {
+    const vis = visRows(m.pid);
+    if (k === 'Up' || k === 'k') m.top = Math.max(0, m.top - 1);
+    else if (k === 'Down' || k === 'j') m.top = Math.min(Math.max(0, m.lines.length - vis), m.top + 1);
+    else if (k === 'PageUp') m.top = Math.max(0, m.top - vis);
+    else if (k === 'PageDown' || k === 'Space') m.top = Math.min(Math.max(0, m.lines.length - vis), m.top + vis);
+    else if (k === 'q' || k === 'Escape' || k === 'Enter' || k === 'C-c') S.mode = null;
+    return;
+  }
+  if (m.type === 'copy') copyKey(k);
+}
+
+/* ---------------- key dispatch ---------------- */
+function label(k) {
+  if (!k) return '';
+  const m = /^([CM])-(.+)$/.exec(k);
+  if (m) return (m[1] === 'C' ? 'Ctrl+' : 'Alt+') + label(m[2]);
+  return ({Up: '↑', Down: '↓', Left: '←', Right: '→', Escape: 'Esc', PageUp: 'PgUp', PageDown: 'PgDn'})[k] || k;
+}
+function handleKey(k) {
+  if (!S.client) { paneKey(S.outer, k, false); return after(); }
+  if (S.prefix) {
+    S.prefix = false;
+    const b = lookup('prefix', k);
+    if (b) runBinding(b, `${label(S.opts.prefix)}  ${label(k)}`, k);
+    else S.explain = {keys: `${label(S.opts.prefix)}  ${label(k)}`, cmd: '(nothing bound)', desc: `No command is bound to ${label(k)} after the prefix, so tmux ignores it.`};
+    return after();
+  }
+  if (S.repeatUntil > Date.now()) { const b = lookup('prefix', k); if (b && b.repeat) { runBinding(b, `${label(k)} (repeat)`, k); return after(); } }
+  S.repeatUntil = 0;
+  const m = S.mode;
+  if (m && !['copy', 'list', 'clock'].includes(m.type)) { modeKey(k); return after(); }
+  if (k === S.opts.prefix) { S.prefix = true; return after(); }
+  if (m) { modeKey(k); return after(); }
+  const rb = lookup('root', k); if (rb) { runBinding(rb, label(k), k); return after(); }
+  const w = curW(); if (!w) return after();
+  const ids = w.sync ? leaves(w.root) : [w.active];
+  for (const id of ids) if (panes.has(id)) paneKey(panes.get(id), k, true);
+  after();
+}
+function after() { checkLesson({type: 'state'}); render(); }
+function normKey(e) {
+  const k = e.key;
+  if (['Shift', 'Control', 'Alt', 'Meta', 'CapsLock', 'Dead', 'Unidentified', 'Process', 'Tab', 'OS', 'AltGraph'].includes(k)) return null;
+  if (e.metaKey) return null;
+  const names = {ArrowUp: 'Up', ArrowDown: 'Down', ArrowLeft: 'Left', ArrowRight: 'Right', ' ': 'Space', Escape: 'Escape', Esc: 'Escape', Enter: 'Enter', Backspace: 'Backspace', PageUp: 'PageUp', PageDown: 'PageDown', Home: 'Home', End: 'End'};
+  let base = names[k];
+  if (e.ctrlKey && e.altKey) return k.length === 1 ? k : null;
+  if (e.altKey) { const c = e.code || ''; if (/^Key[A-Z]$/.test(c)) base = c.slice(3).toLowerCase(); else if (/^Digit\d$/.test(c)) base = c.slice(5); else if (!base && k.length === 1) base = k; return base ? 'M-' + base : null; }
+  if (e.ctrlKey) { if (!base) { const c = e.code || ''; if (/^Key[A-Z]$/.test(c)) base = c.slice(3).toLowerCase(); else if (k.length === 1) base = k.toLowerCase(); } return base ? 'C-' + base : null; }
+  return base || (k.length === 1 ? k : null);
+}
+
+/* ---------------- messages & toasts ---------------- */
+function showMsg(text, ms = 2200) { S.msg = {text, until: Date.now() + ms}; setTimeout(scheduleRender, ms + 30); }
+let toastTimer = null;
+function toast(text) { const t = $('#toast'); t.textContent = text; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => t.hidden = true, 3800); }
+
+/* ---------------- rendering ---------------- */
+let rq = false;
+function scheduleRender() { if (rq) return; rq = true; requestAnimationFrame(() => { rq = false; render(); }); }
+function winFlags(s, w) { return (w.id === s.cur ? '*' : w.id === s.lastWin ? '-' : '') + (w.zoom ? 'Z' : ''); }
+function posStyle(r) {
+  const L = r.x > 1e-6, T = r.y > 1e-6;
+  return `left:calc(${r.x * 100}% + ${L ? 1 : 0}px);top:calc(${r.y * 100}% + ${T ? 1 : 0}px);width:calc(${r.w * 100}% - ${L ? 1 : 0}px);height:calc(${r.h * 100}% - ${T ? 1 : 0}px)`;
+}
+function frameStyle(r) {
+  const L = r.x > 1e-6, T = r.y > 1e-6;
+  return `left:${L ? r.x * 100 + '%' : '-1px'};top:${T ? r.y * 100 + '%' : '-1px'};width:calc(${r.w * 100}% + ${L ? 1 : 2}px);height:calc(${r.h * 100}% + ${T ? 1 : 2}px)`;
+}
+function cursorHtml(ch = ' ') { return `<span class="cur${S.focused ? '' : ' hollow'}">${esc(ch)}</span>`; }
+function paneHtml(p, r, active, w) {
+  const vis = Math.max(1, Math.floor(r.h * S.areaH / LH)), m = S.mode;
+  let body = '', extra = '';
+  if (m && m.type === 'copy' && m.pid === p.id) {
+    const L = m.lines;
+    if (m.top == null) m.top = Math.max(0, L.length - vis);
+    if (m.row < m.top) m.top = m.row; if (m.row >= m.top + vis) m.top = m.row - vis + 1;
+    m.top = Math.max(0, Math.min(m.top, Math.max(0, L.length - vis)));
+    const o = selOrder(m);
+    for (let i = m.top; i < Math.min(L.length, m.top + vis); i++) {
+      const line = L[i]; let s = ''; const n = Math.max(line.length, i === m.row ? m.col + 1 : 0);
+      for (let c = 0; c < n; c++) {
+        const ch = line[c] ?? ' ', cur = i === m.row && c === m.col;
+        const sel = o && (i > o[0].r || (i === o[0].r && c >= o[0].c)) && (i < o[1].r || (i === o[1].r && c <= o[1].c));
+        s += cur ? `<span class="ccur">${esc(ch)}</span>` : sel ? `<span class="csel">${esc(ch)}</span>` : esc(ch);
+      }
+      body += `<div class="ln nowrap">${s || ' '}</div>`;
+    }
+    const total = Math.max(0, L.length - vis);
+    extra = `<div class="copy-pos">[${Math.max(0, total - m.top)}/${total}]</div>`;
+    return `<div class="pane" data-pid="${p.id}" style="${posStyle(r)};justify-content:flex-start">${body}${extra}</div>`;
+  }
+  if (active && m && m.type === 'clock') { const d = new Date(); return `<div class="pane" data-pid="${p.id}" style="${posStyle(r)};justify-content:center"><div class="clock">${pad2(d.getHours())}:${pad2(d.getMinutes())}</div></div>`; }
+  if (active && m && m.type === 'list') {
+    for (let i = m.top; i < Math.min(m.lines.length, m.top + vis); i++) body += `<div class="ln nowrap">${esc(m.lines[i])}</div>`;
+    return `<div class="pane list-view" data-pid="${p.id}" style="${posStyle(r)};justify-content:flex-start">${body}<div class="copy-pos">[${m.top}/${Math.max(0, m.lines.length - vis)}]</div></div>`;
+  }
+  const show = p.proc ? vis : vis - 1;
+  const lines = show > 0 ? p.lines.slice(-show) : [];
+  body = lines.map(l => `<div class="ln">${esc(l) || ' '}</div>`).join('');
+  if (!p.proc) body += `<div class="ln">${esc(promptOf(p) + p.input)}${active ? cursorHtml() : ''}</div>`;
+  if (m && m.type === 'panes' && w) extra = `<div class="pane-num${active ? ' act' : ''}">${paneIdx(w, p.id)}</div>`;
+  return `<div class="pane" data-pid="${p.id}" style="${posStyle(r)}">${body}${extra}</div>`;
+}
+function statusHtml(s, w) {
+  const m = S.mode;
+  if (m && m.type === 'prompt') return `<div class="st-msg">${esc(m.label + m.value)}<span class="cur">&nbsp;</span></div>`;
+  if (m && m.type === 'confirm') return `<div class="st-msg">${esc(m.text)}</div>`;
+  if (S.msg && S.msg.until > Date.now()) return `<div class="st-msg">${esc(S.msg.text)}</div>`;
+  const left = expand(S.opts.statusLeft, null, {s, w, pid: w.active});
+  const wins = s.windows.map(x => `<span class="win" data-wid="${x.id}">${esc(`${x.index}:${dispName(x)}${winFlags(s, x)}`)}</span>`).join(' ');
+  const right = expand(S.opts.statusRight, null, {s, w, pid: w.active});
+  return `<div class="st-left">${esc(left)}${wins}</div><div class="st-right">${esc(right)}</div>`;
+}
+function renderTerm() {
+  const box = $('#term-panes'), st = $('#term-status'), term = $('#term');
+  S.areaH = box.clientHeight || S.areaH;
+  term.classList.toggle('focused', S.focused);
+  let html = '';
+  if (!S.client) {
+    st.hidden = true;
+    html = paneHtml(S.outer, {x: 0, y: 0, w: 1, h: 1}, true, null);
+  } else {
+    const s = curS(), w = winOf(s);
+    st.hidden = !S.opts.status && !(S.mode && ['prompt', 'confirm'].includes(S.mode.type));
+    term.classList.toggle('status-top', S.opts.statusPosition === 'top');
+    st.style.background = colour(S.opts.statusBg) || COLOURS.green; st.style.color = colour(S.opts.statusFg) || '#000';
+    if (S.mode && S.mode.type === 'tree') {
+      const m = S.mode;
+      html = `<div class="tree">${m.items.map((it, i) => `<div class="ln nowrap${i === m.idx ? ' hl' : ''}">${esc(`(${i}) ${it.label}`)}</div>`).join('')}<div class="foot">↑ ↓ to move · Enter to choose · q to cancel</div></div>`;
+    } else {
+      const R = w.zoom ? [{id: w.active, x: 0, y: 0, w: 1, h: 1}] : rects(w.root);
+      for (const r of R) html += paneHtml(panes.get(r.id), r, r.id === w.active, w);
+      if (R.length > 1) html += `<div class="frame" style="${frameStyle(R.find(r => r.id === w.active))}"></div>`;
+    }
+    st.innerHTML = statusHtml(s, w);
+  }
+  box.innerHTML = html;
+  const ip = $('#ind-prefix'); ip.classList.toggle('on', S.prefix); ip.textContent = S.prefix ? 'PREFIX: waiting for a key' : 'PREFIX';
+  const im = $('#ind-mode'), mt = S.mode ? S.mode.type : null;
+  const modeName = {copy: 'copy mode', prompt: S.mode && S.mode.search ? 'search' : 'command prompt', confirm: 'confirm (y/n)', tree: 'choose-tree', panes: 'pane numbers', clock: 'clock', list: 'list (q to close)'}[mt] || 'normal';
+  im.textContent = modeName; im.classList.toggle('on', !!mt);
+  $('#ind-where').textContent = S.client ? `tmux · ${curS().name}` : 'plain shell';
+  const ex = S.explain;
+  $('#explain').innerHTML = ex ? `${keysHtml(ex.keys)} ran <code>${esc(ex.cmd)}</code>${ex.desc ? `<br><span class="muted">${esc(ex.desc)}</span>` : ''}` : '<span class="muted">Each tmux key you press is a command. What it ran shows up here.</span>';
+}
+function keysHtml(s) { if (/^(Typed in the shell|Command prompt|Prompt|Mouse click)$/.test(s)) return `<span class="muted">${esc(s)}:</span>`; return s.split(/\s+/).filter(Boolean).map(part => part.startsWith('(') ? `<span class="muted">${esc(part)}</span>` : part.length > 1 && part.includes('+') ? part.split('+').map(x => `<kbd>${esc(x)}</kbd>`).join('+') : `<kbd>${esc(part)}</kbd>`).join(' '); }
+function render() { renderTerm(); }
+
+/* ---------------- events / lessons ---------------- */
+let cur = 0, step = 0, hintOpen = false, settingUp = false;
+function emit(type, data = {}) { checkLesson({type, ...data}); }
+const on = (type, f = () => true) => ev => ev.type === type && f(ev);
+const st = f => () => { try { return !!f(); } catch (e) { return false; } };
+const W = () => curW(), PN = () => W() ? leaves(W().root).length : 0;
+function shape(n) { return n.t === 'p' ? 'p' : `${n.dir}(${n.kids.map(shape).join(',')})`; }
+
+const LESSONS = [
+  {id: 'start', mod: 'First steps', title: 'Start your first session', setup: 'none',
+   intro: `<p>tmux is a <b>terminal multiplexer</b>: one terminal that holds many. It runs a small server in the background that keeps your programs alive, even if you close the terminal or your SSH connection drops.</p>
+   <p>A <b>session</b> is a workspace. Inside it, <b>windows</b> work like tabs, and each window can be split into <b>panes</b>.</p>
+   <p>You control tmux with the <b>prefix</b>: press <kbd>Ctrl</kbd>+<kbd>b</kbd>, let go, then press one more key. On a Mac it's Control, not Command. The amber Prefix button below does the same thing.</p>`,
+   steps: [
+     {do: 'Click the terminal, type <code>tmux new -s learn</code>, and press <kbd>Enter</kbd>.', hint: '<code>new</code> is short for <code>new-session</code>, and <code>-s learn</code> names it. Without a name, tmux numbers sessions 0, 1, 2…', check: on('attached', e => e.name === 'learn')},
+     {do: 'You\'re inside tmux. Run a normal command: <code>echo hello</code>.', hint: 'The shell works exactly as before. tmux sits around it.', check: on('shell', e => e.inside)},
+     {do: 'Try your first prefix key: <kbd>Ctrl</kbd>+<kbd>b</kbd>, let go, then <kbd>t</kbd>. Press any key to close the clock.', hint: 'Press and release Ctrl+b first, then t on its own. If Ctrl+b doesn\'t register in your browser, use the amber Prefix button.', check: on('clock-exit')},
+   ],
+   recap: 'The green bar is the status line. <code>[learn]</code> is the session, <code>0:bash*</code> is window 0 (the <code>*</code> marks the current window), and the right side shows the pane title and the time.'},
+  {id: 'detach', mod: 'First steps', title: 'Detach and come back', setup: 'session',
+   intro: `<p><b>Detaching</b> takes you back to your normal shell but leaves the session running on the tmux server. Nothing inside it stops.</p>
+   <p>This is the main reason people use tmux over SSH: if the connection drops, the session is still there. <code>tmux ls</code> lists sessions and <code>tmux attach -t name</code> (short: <code>tmux a -t name</code>) reconnects.</p>`,
+   steps: [
+     {do: 'Detach: <kbd>Prefix</kbd> then <kbd>d</kbd>.', hint: 'Prefix is Ctrl+b. You\'ll see <code>[detached (from session learn)]</code>.', check: on('detached')},
+     {do: 'You\'re in your plain shell. List the sessions: <code>tmux ls</code>.', hint: 'Note the session is still listed, with its window count.', check: on('list-sessions', e => e.from === 'cli')},
+     {do: 'Reattach: <code>tmux attach -t learn</code>.', hint: '<code>tmux a</code> on its own attaches to the most recent session.', check: on('attached', e => e.name === 'learn')},
+   ],
+   recap: 'Detach with <kbd>Prefix</kbd> <kbd>d</kbd>, list with <code>tmux ls</code>, reattach with <code>tmux a -t name</code>.'},
+  {id: 'persist', mod: 'First steps', title: 'Work keeps running', setup: 'session',
+   intro: `<p>Start something that runs for a while, walk away, and come back to find it still going.</p>
+   <p>In this trainer <code>ping example.com</code> prints a line every second until you stop it with <kbd>Ctrl</kbd>+<kbd>c</kbd>. Real uses: a long build, a server, a database migration, or a download over SSH.</p>`,
+   steps: [
+     {do: 'Start a long-running command: <code>ping example.com</code>.', hint: 'Watch the window name in the status bar change to <code>ping</code>. tmux renames windows after the running program unless you name them yourself.', check: on('proc-start', e => e.name === 'ping')},
+     {do: 'Detach while it\'s running: <kbd>Prefix</kbd> <kbd>d</kbd>.', hint: 'Ctrl+b, then d.', check: on('detached', e => e.running)},
+     {do: 'Wait a few seconds, then reattach with <code>tmux a</code>.', hint: 'The ping kept counting while you were away.', check: on('attached', e => e.name === 'learn' && findExact('learn') && sessionRunning(findExact('learn')))},
+     {do: 'Stop the ping with <kbd>Ctrl</kbd>+<kbd>c</kbd>.', hint: 'Ctrl+c goes to the program in the pane, not to tmux.', check: on('proc-stop', e => e.name === 'ping')},
+   ],
+   recap: 'Programs in tmux keep running while you\'re detached. That\'s what makes it safe to start long jobs on a remote server.'},
+  {id: 'split', mod: 'Panes', title: 'Split the window', setup: 'session',
+   intro: `<p><kbd>%</kbd> splits the current pane into left and right halves. <kbd>"</kbd> splits it into top and bottom. tmux names these the other way round: <code>split-window -h</code> means a <i>horizontal</i> arrangement, side by side.</p>
+   <p>The active pane has the green border, and typing goes there. New panes start in the directory the session started in, not the one you were in; the config lesson shows how to change that.</p>`,
+   steps: [
+     {do: 'Split side by side: <kbd>Prefix</kbd> <kbd>%</kbd>.', hint: '% is Shift+5 on most keyboards. Press Ctrl+b, let go, then Shift+5.', check: on('split', e => e.dir === 'h')},
+     {do: 'Split the new pane top and bottom: <kbd>Prefix</kbd> <kbd>"</kbd>.', hint: '" is Shift+\' on US keyboards.', check: on('split', e => e.dir === 'v')},
+     {do: 'Type <code>pwd</code> in the active pane.', hint: 'Only the pane with the green border receives your typing.', check: on('shell', e => e.inside && e.cmd === 'pwd')},
+   ],
+   recap: '<kbd>Prefix</kbd> <kbd>%</kbd> splits left and right, <kbd>Prefix</kbd> <kbd>"</kbd> splits top and bottom.'},
+  {id: 'move', mod: 'Panes', title: 'Move between panes', setup: 'three',
+   intro: `<p>Four ways to change the active pane:</p>
+   <p><kbd>Prefix</kbd> plus an arrow key moves in that direction. <kbd>Prefix</kbd> <kbd>o</kbd> cycles to the next pane. <kbd>Prefix</kbd> <kbd>q</kbd> flashes each pane's number; press a number while they show to jump there. <kbd>Prefix</kbd> <kbd>;</kbd> jumps back to the pane you were just in.</p>`,
+   steps: [
+     {do: 'Move left: <kbd>Prefix</kbd> <kbd>←</kbd>.', hint: 'After the prefix you can press another arrow within half a second without the prefix again.', check: on('select-pane', e => e.how === 'dir')},
+     {do: 'Cycle to the next pane: <kbd>Prefix</kbd> <kbd>o</kbd>.', hint: 'o runs <code>select-pane -t :.+</code>, meaning "the next pane in this window".', check: on('select-pane', e => e.how === 'next')},
+     {do: 'Show the numbers with <kbd>Prefix</kbd> <kbd>q</kbd>, then quickly press one of them.', hint: 'The numbers show for under two seconds here (one second by default in real tmux). The active pane\'s number is red.', check: on('select-pane', e => e.how === 'number')},
+     {do: 'Jump back to the previous pane: <kbd>Prefix</kbd> <kbd>;</kbd>.', hint: 'Useful for flipping between an editor and a terminal.', check: on('select-pane', e => e.how === 'last')},
+   ],
+   recap: 'Arrows for direction, <kbd>o</kbd> to cycle, <kbd>q</kbd> + number to jump, <kbd>;</kbd> to go back.'},
+  {id: 'zoom', mod: 'Panes', title: 'Zoom and resize', setup: 'two',
+   intro: `<p><kbd>Prefix</kbd> <kbd>z</kbd> zooms the active pane to fill the window. Press it again to restore the layout. A <code>Z</code> appears beside the window name while zoomed.</p>
+   <p>To resize, press <kbd>Prefix</kbd> then <kbd>Ctrl</kbd>+an arrow to move the border by one cell, or <kbd>Alt</kbd>+an arrow to move it by five. These keys repeat: after one prefix, keep pressing them for half a second each.</p>`,
+   steps: [
+     {do: 'Zoom the active pane: <kbd>Prefix</kbd> <kbd>z</kbd>.', hint: 'Look for <code>Z</code> after the window name in the status bar.', check: on('zoom', e => e.on)},
+     {do: 'Unzoom: <kbd>Prefix</kbd> <kbd>z</kbd> again.', hint: 'Same key toggles it back.', check: on('zoom', e => !e.on)},
+     {do: 'Move the border: <kbd>Prefix</kbd> then <kbd>Ctrl</kbd>+<kbd>←</kbd> (tap <kbd>Ctrl</kbd>+<kbd>←</kbd> a few times).', hint: 'Keep holding Ctrl and tap the arrow; each tap within half a second repeats without the prefix. On a Mac, some Ctrl+arrow keys switch desktops; use Alt+arrow or the command prompt instead.', check: on('resize')},
+     {do: 'Move it by five with <kbd>Prefix</kbd> <kbd>Alt</kbd>+<kbd>→</kbd>, or type <kbd>Prefix</kbd> <kbd>:</kbd> <code>resize-pane -R 5</code>.', hint: 'Alt is Option on a Mac.', check: on('resize', e => e.n >= 5)},
+   ],
+   recap: '<kbd>z</kbd> toggles zoom. <kbd>Ctrl</kbd>/<kbd>Alt</kbd> + arrows resize after the prefix, and they repeat.'},
+  {id: 'close', mod: 'Panes', title: 'Close panes', setup: 'three',
+   intro: `<p>A pane closes when its shell exits, so <code>exit</code> or <kbd>Ctrl</kbd>+<kbd>d</kbd> closes it. <kbd>Prefix</kbd> <kbd>x</kbd> closes the pane after asking you to confirm with <kbd>y</kbd>; use it when a program is stuck.</p>`,
+   steps: [
+     {do: 'Type <code>exit</code> in the active pane.', hint: 'The pane closes and its space goes to a neighbour.', check: on('kill-pane', e => e.via === 'exit')},
+     {do: 'Close another pane with <kbd>Prefix</kbd> <kbd>x</kbd>, then press <kbd>y</kbd>.', hint: 'Any key other than y cancels.', check: on('kill-pane', e => e.via === 'key')},
+   ],
+   recap: '<code>exit</code> for a normal close, <kbd>Prefix</kbd> <kbd>x</kbd> <kbd>y</kbd> to force one.'},
+  {id: 'windows', mod: 'Windows', title: 'Create and name windows', setup: 'session',
+   intro: `<p>Windows are full-screen tabs inside a session, each with its own panes. <kbd>Prefix</kbd> <kbd>c</kbd> creates one. <kbd>Prefix</kbd> <kbd>,</kbd> renames the current window.</p>
+   <p>The rename prompt starts with the current name filled in. Clear it with <kbd>Backspace</kbd> or <kbd>Ctrl</kbd>+<kbd>u</kbd> before typing.</p>`,
+   steps: [
+     {do: 'Create a window: <kbd>Prefix</kbd> <kbd>c</kbd>.', hint: 'The status bar now lists <code>0:bash- 1:bash*</code>: the dash marks the window you were in last.', check: on('new-window')},
+     {do: 'Rename it to logs: <kbd>Prefix</kbd> <kbd>,</kbd>, clear the old name, type <code>logs</code>, press <kbd>Enter</kbd>.', hint: 'Ctrl+u clears the prompt in one go.', check: on('rename-window', e => e.name === 'logs')},
+     {do: 'Follow the log in this window: <code>tail -f app.log</code>.', hint: 'Because you named the window, tmux keeps the name logs instead of renaming it to tail.', check: on('proc-start', e => e.name === 'tail')},
+     {do: 'Go back to window 0: <kbd>Prefix</kbd> <kbd>0</kbd>.', hint: 'The log keeps streaming in window 1 while you\'re away.', check: on('select-window', e => e.how === 'index')},
+   ],
+   recap: '<kbd>c</kbd> creates, <kbd>,</kbd> renames, and a number key jumps to that window.'},
+  {id: 'switch', mod: 'Windows', title: 'Switch windows', setup: 'windows',
+   intro: `<p>This session has three windows. <kbd>Prefix</kbd> <kbd>n</kbd> and <kbd>p</kbd> go to the next and previous window. A number goes straight to that window. <kbd>Prefix</kbd> <kbd>l</kbd> toggles between the two most recent windows.</p>
+   <p><kbd>Prefix</kbd> <kbd>w</kbd> opens a tree of every session and window, which is the fastest way to find something when you have many.</p>`,
+   steps: [
+     {do: 'Next window: <kbd>Prefix</kbd> <kbd>n</kbd>.', hint: 'It wraps around from the last window to the first.', check: on('select-window', e => e.how === 'next')},
+     {do: 'Previous window: <kbd>Prefix</kbd> <kbd>p</kbd>.', hint: 'p for previous.', check: on('select-window', e => e.how === 'prev')},
+     {do: 'Jump to window 2: <kbd>Prefix</kbd> <kbd>2</kbd>.', hint: 'Number keys go straight to that window index.', check: on('select-window', e => e.how === 'index')},
+     {do: 'Toggle back: <kbd>Prefix</kbd> <kbd>l</kbd>.', hint: 'l for last.', check: on('select-window', e => e.how === 'last')},
+     {do: 'Open the tree with <kbd>Prefix</kbd> <kbd>w</kbd>, move with the arrows, press <kbd>Enter</kbd>.', hint: 'q closes the tree without choosing.', check: on('select-window', e => e.how === 'tree')},
+   ],
+   recap: '<kbd>n</kbd>/<kbd>p</kbd> step, numbers jump, <kbd>l</kbd> toggles, <kbd>w</kbd> shows everything.'},
+  {id: 'closewin', mod: 'Windows', title: 'Close windows and end a session', setup: 'windows',
+   intro: `<p><kbd>Prefix</kbd> <kbd>&amp;</kbd> closes the whole window, every pane in it, after you confirm with <kbd>y</kbd>.</p>
+   <p>When the last window in a session closes, the session ends and you return to your plain shell with <code>[exited]</code>.</p>`,
+   steps: [
+     {do: 'Close the current window: <kbd>Prefix</kbd> <kbd>&amp;</kbd>, then <kbd>y</kbd>.', hint: '& is Shift+7 on US keyboards.', check: on('kill-window')},
+     {do: 'Close the rest until the session ends. Use <kbd>Prefix</kbd> <kbd>&amp;</kbd> <kbd>y</kbd> or <code>exit</code>.', hint: 'If a window runs tail -f, press Ctrl+c before typing exit.', check: on('session-end')},
+   ],
+   recap: 'A session lives as long as it has a window. Close the last one and the session is gone.'},
+  {id: 'sessions', mod: 'Sessions', title: 'Juggle several sessions', setup: 'session',
+   intro: `<p>One session per project keeps work separate: <code>school</code>, <code>homelab</code>, <code>blog</code>. You can switch between them without detaching.</p>
+   <p><kbd>Prefix</kbd> <kbd>:</kbd> opens tmux's command prompt in the status line, where you can type any tmux command. <kbd>Prefix</kbd> <kbd>s</kbd> lists sessions, <kbd>Prefix</kbd> <kbd>(</kbd> and <kbd>)</kbd> step through them, and <kbd>Prefix</kbd> <kbd>$</kbd> renames the current one.</p>`,
+   steps: [
+     {do: 'Create a second session from inside tmux: <kbd>Prefix</kbd> <kbd>:</kbd>, type <code>new-session -s work</code>, press <kbd>Enter</kbd>.', hint: 'The prompt is the yellow bar. Esc cancels it.', check: on('attached', e => e.name === 'work')},
+     {do: 'Go back to learn with the list: <kbd>Prefix</kbd> <kbd>s</kbd>, pick learn, press <kbd>Enter</kbd>.', hint: 'You can also press the number shown beside it.', check: on('switch', e => e.how === 'tree' && e.name === 'learn')},
+     {do: 'Step to the next session: <kbd>Prefix</kbd> <kbd>)</kbd>.', hint: ') is Shift+0. ( goes the other way.', check: on('switch', e => e.how === 'next' || e.how === 'prev')},
+     {do: 'Rename this session: <kbd>Prefix</kbd> <kbd>$</kbd>, clear the name, type a new one, press <kbd>Enter</kbd>.', hint: '$ is Shift+4. Ctrl+u clears the prompt.', check: on('rename-session')},
+   ],
+   recap: 'Make sessions with <code>new-session -s name</code>, switch with <kbd>s</kbd> or <kbd>(</kbd> <kbd>)</kbd>, rename with <kbd>$</kbd>.'},
+  {id: 'cleanup', mod: 'Sessions', title: 'Manage sessions from the shell', setup: 'sessions',
+   intro: `<p>You can manage tmux from any shell, attached or not. <code>tmux kill-session -t name</code> ends one session. <code>tmux kill-server</code> ends tmux entirely, along with every session in it.</p>
+   <p>When the last session ends, the server exits too, and options you changed with <code>set</code> are forgotten. That's why lasting settings belong in <code>~/.tmux.conf</code>.</p>`,
+   steps: [
+     {do: 'Detach: <kbd>Prefix</kbd> <kbd>d</kbd>.', hint: 'Ctrl+b, then d.', check: on('detached')},
+     {do: 'List sessions: <code>tmux ls</code>.', hint: 'You should see learn and work.', check: on('list-sessions', e => e.from === 'cli')},
+     {do: 'End the work session: <code>tmux kill-session -t work</code>.', hint: 'Check with tmux ls again if you like.', check: on('session-killed', e => e.name === 'work')},
+     {do: 'Stop the whole server: <code>tmux kill-server</code>.', hint: 'Afterwards tmux ls says <code>no server running</code>.', check: on('server-stop')},
+   ],
+   recap: '<code>kill-session -t</code> ends one session; <code>kill-server</code> ends them all.'},
+  {id: 'scroll', mod: 'Copy mode', title: 'Scroll back and search', setup: 'session',
+   intro: `<p>Mouse scrolling doesn't scroll a tmux pane by default. Instead, <kbd>Prefix</kbd> <kbd>[</kbd> enters <b>copy mode</b>, which freezes the pane so you can move through its history (2000 lines unless you change <code>history-limit</code>).</p>
+   <p>Copy mode has two key sets. Real tmux uses the emacs set (arrows, <kbd>Ctrl</kbd>+<kbd>r</kbd> to search up) unless you set <code>mode-keys vi</code> or your <code>EDITOR</code> contains vi; the vi set uses <kbd>k</kbd>/<kbd>j</kbd> and <kbd>?</kbd> to search up. This trainer accepts both.</p>`,
+   steps: [
+     {do: 'Make some history: <code>seq 1 200</code>.', hint: 'It prints the numbers 1 to 200.', check: on('shell', e => e.cmd === 'seq')},
+     {do: 'Enter copy mode: <kbd>Prefix</kbd> <kbd>[</kbd>.', hint: 'The yellow box at top right shows how far up you are.', check: on('copy-enter')},
+     {do: 'Move up at least 20 lines with <kbd>↑</kbd> or <kbd>PgUp</kbd>.', hint: 'PgUp moves a full screen at a time.', check: st(() => S.mode && S.mode.type === 'copy' && S.mode.lines.length - 1 - S.mode.row >= 20)},
+     {do: 'Search up for 150: press <kbd>Ctrl</kbd>+<kbd>r</kbd> (or <kbd>?</kbd>), type <code>150</code>, press <kbd>Enter</kbd>.', hint: 'n repeats the search.', check: on('copy-search', e => e.found)},
+     {do: 'Leave copy mode with <kbd>q</kbd>.', hint: 'The pane catches up with anything that printed meanwhile.', check: on('copy-exit')},
+   ],
+   recap: '<kbd>Prefix</kbd> <kbd>[</kbd> to scroll, search with <kbd>Ctrl</kbd>+<kbd>r</kbd> or <kbd>?</kbd>, leave with <kbd>q</kbd>.'},
+  {id: 'copy', mod: 'Copy mode', title: 'Copy and paste', setup: 'session',
+   intro: `<p>In copy mode, start a selection, move to extend it, then copy. tmux keeps the text in its own <b>paste buffer</b>; <kbd>Prefix</kbd> <kbd>]</kbd> pastes it into the active pane as if you typed it.</p>
+   <p>Start: <kbd>Space</kbd> (vi) or <kbd>Ctrl</kbd>+<kbd>Space</kbd> (emacs). Copy: <kbd>Enter</kbd> (vi) or <kbd>Alt</kbd>+<kbd>w</kbd> (emacs). To reach your computer's clipboard too, real tmux needs <code>set -g set-clipboard on</code> and a terminal that supports it.</p>`,
+   steps: [
+     {do: 'Print the notes: <code>cat notes.txt</code>.', hint: 'There\'s a deploy token in there to copy.', check: on('shell', e => e.cmd === 'cat')},
+     {do: 'Enter copy mode (<kbd>Prefix</kbd> <kbd>[</kbd>), move to the start of the token, press <kbd>Space</kbd>.', hint: 'Use the arrows or h j k l. w jumps a word forward, 0 goes to the line start.', check: on('copy-select')},
+     {do: 'Move to the end of the token and press <kbd>Enter</kbd> to copy.', hint: 'The selection is highlighted in yellow.', check: on('copy-done', e => e.text.trim().length > 0)},
+     {do: 'Paste it: <kbd>Prefix</kbd> <kbd>]</kbd>.', hint: 'It appears at the prompt. Press Ctrl+u to clear it afterwards.', check: on('paste')},
+   ],
+   recap: '<kbd>[</kbd> enter, <kbd>Space</kbd> start, <kbd>Enter</kbd> copy, <kbd>Prefix</kbd> <kbd>]</kbd> paste.'},
+  {id: 'prompt', mod: 'Commands & layouts', title: 'The command prompt and layouts', setup: 'two',
+   intro: `<p>Every key binding runs a tmux command, and you can type those commands yourself at <kbd>Prefix</kbd> <kbd>:</kbd>. Anything you can bind, script, or put in a config file starts here. The panel under the terminal shows which command each key ran.</p>
+   <p>tmux has five preset layouts: <code>even-horizontal</code>, <code>even-vertical</code>, <code>main-horizontal</code>, <code>main-vertical</code>, and <code>tiled</code>. <kbd>Prefix</kbd> <kbd>Space</kbd> cycles through them.</p>`,
+   steps: [
+     {do: 'Split by command: <kbd>Prefix</kbd> <kbd>:</kbd> <code>split-window -h</code> <kbd>Enter</kbd>.', hint: 'Same as Prefix %. Up arrow in the prompt recalls earlier commands.', check: on('split', e => e.from === 'prompt')},
+     {do: 'Arrange as a grid: <kbd>Prefix</kbd> <kbd>:</kbd> <code>select-layout tiled</code>.', hint: 'Shortcut: Prefix Alt+5.', check: on('layout', e => e.name === 'tiled')},
+     {do: 'Cycle layouts: <kbd>Prefix</kbd> <kbd>Space</kbd> (try it a few times).', hint: 'The layout name flashes in the status line.', check: on('layout', e => e.how === 'next')},
+     {do: 'See every binding: <kbd>Prefix</kbd> <kbd>?</kbd>. Press <kbd>q</kbd> to close.', hint: 'In real tmux this list is long; it\'s the best place to look things up.', check: on('list-keys')},
+   ],
+   recap: 'Keys are shortcuts for commands. <kbd>Prefix</kbd> <kbd>:</kbd> lets you type any of them.'},
+  {id: 'rearrange', mod: 'Commands & layouts', title: 'Rearrange panes', setup: 'three',
+   intro: `<p><kbd>Prefix</kbd> <kbd>{</kbd> and <kbd>}</kbd> swap the active pane with the previous or next one. <kbd>Prefix</kbd> <kbd>!</kbd> breaks the pane out into its own window.</p>
+   <p>There's no default key to move a pane back, so you use a command: <code>join-pane -s :1</code> brings window 1's pane into the current window. <code>-s</code> is the source; targets read <code>session:window.pane</code>.</p>`,
+   steps: [
+     {do: 'Swap panes: <kbd>Prefix</kbd> <kbd>}</kbd>.', hint: '} is Shift+].', check: on('swap')},
+     {do: 'Break the active pane into a new window: <kbd>Prefix</kbd> <kbd>!</kbd>.', hint: 'A new window appears in the status bar, holding that pane.', check: on('break')},
+     {do: 'Go back to window 0: <kbd>Prefix</kbd> <kbd>0</kbd>.', hint: 'Or Prefix l, since it\'s the last window.', check: on('select-window')},
+     {do: 'Pull the pane back in: <kbd>Prefix</kbd> <kbd>:</kbd> <code>join-pane -s :1</code>.', hint: 'Add -h to join it side by side instead of below.', check: on('join')},
+   ],
+   recap: '<kbd>{</kbd> <kbd>}</kbd> swap, <kbd>!</kbd> breaks out, <code>join-pane -s</code> brings a pane back.'},
+  {id: 'sync', mod: 'Commands & layouts', title: 'Type in every pane at once', setup: 'three',
+   intro: `<p>With <code>synchronize-panes</code> on, whatever you type goes to every pane in the window. It's handy for running the same command on several servers at once, each SSH'd in its own pane.</p>
+   <p>Turn it off again when you're done; it's easy to forget and type into the wrong places.</p>`,
+   steps: [
+     {do: 'Turn it on: <kbd>Prefix</kbd> <kbd>:</kbd> <code>setw synchronize-panes on</code>.', hint: '<code>setw</code> is short for set-window-option.', check: on('option', e => e.name === 'synchronize-panes' && e.value === 'on')},
+     {do: 'Type <code>echo hi</code> and press <kbd>Enter</kbd>. Watch all three panes.', hint: 'Every pane runs it.', check: on('shell', e => e.synced)},
+     {do: 'Turn it off: <kbd>Prefix</kbd> <kbd>:</kbd> <code>setw synchronize-panes off</code>.', hint: 'Without a value, the option toggles.', check: on('option', e => e.name === 'synchronize-panes' && e.value === 'off')},
+   ],
+   recap: '<code>setw synchronize-panes</code> toggles typing into every pane of the window.'},
+  {id: 'options', mod: 'Make it yours', title: 'Change options live', setup: 'three',
+   intro: `<p><code>set -g</code> changes an option for the whole server right away. Two popular changes:</p>
+   <p><code>mouse on</code> lets you click panes and windows, drag borders, and scroll into copy mode with the wheel. A <code>C-a</code> prefix (Ctrl+a) is easier to reach and familiar from the older program GNU screen. The catch is that Ctrl+a also moves to the start of a line in the shell; with that prefix, press it twice to send a real Ctrl+a.</p>`,
+   steps: [
+     {do: 'Turn on the mouse: <kbd>Prefix</kbd> <kbd>:</kbd> <code>set -g mouse on</code>.', hint: '-g means global: every session and window.', check: on('option', e => e.name === 'mouse' && e.value === 'on')},
+     {do: 'Click a different pane to select it.', hint: 'Before mouse was on, clicks did nothing.', check: on('select-pane', e => e.how === 'mouse')},
+     {do: 'Change the prefix: <kbd>Prefix</kbd> <kbd>:</kbd> <code>set -g prefix C-a</code>.', hint: 'C-a means Ctrl+a.', check: on('option', e => e.name === 'prefix' && e.value === 'C-a')},
+     {do: 'Use it: <kbd>Ctrl</kbd>+<kbd>a</kbd> then <kbd>c</kbd> for a new window.', hint: 'Ctrl+b no longer works as the prefix. The Prefix button follows the new setting.', check: on('new-window', () => S.opts.prefix === 'C-a')},
+     {do: 'Put it back: <kbd>Ctrl</kbd>+<kbd>a</kbd> <kbd>:</kbd> <code>set -g prefix C-b</code>.', hint: 'Or keep C-a and put it in your config later.', check: on('option', e => e.name === 'prefix' && e.value === 'C-b')},
+   ],
+   recap: 'Options set with <code>set -g</code> last until the server exits. Put the ones you like in <code>~/.tmux.conf</code>.'},
+  {id: 'config', mod: 'Make it yours', title: 'Write your .tmux.conf', setup: 'session',
+   intro: `<p><code>~/.tmux.conf</code> is a list of tmux commands that run each time the server starts. It's where your prefix, mouse setting, and custom keys live.</p>
+   <p>The Config builder tab writes one for you. Load it into the trainer, apply it with <code>source-file</code>, then try one of your new keys.</p>`,
+   steps: [
+     {do: 'Open the Config builder tab, pick some options (try "| and - split"), and choose <b>Use in trainer</b>. Then come back here.', hint: 'The tab is at the top of the page. Your choices are saved in this browser.', check: on('config-saved')},
+     {do: 'Apply it to the running server: <kbd>Prefix</kbd> <kbd>:</kbd> <code>source-file ~/.tmux.conf</code>.', hint: 'If you changed the prefix in the config, use the new prefix from now on.', check: on('source')},
+     {do: 'Try one of your custom keys, for example <kbd>Prefix</kbd> <kbd>|</kbd>.', hint: 'Custom bindings come from lines starting with <code>bind</code>. Prefix ? lists them at the top.', check: on('bind-used')},
+   ],
+   recap: 'Real tmux reads the file when the server starts. After editing it while tmux is running, run <code>tmux source ~/.tmux.conf</code>, or use the reload key if your config has one.'},
+  {id: 'script', mod: 'Automate', title: 'Script a workspace', setup: 'none',
+   intro: `<p>Every tmux command also works from the shell, so a few lines in a script can rebuild a whole workspace. The key pieces:</p>
+   <p><code>-d</code> creates a session without attaching. <code>-t dev:0.1</code> targets session <b>dev</b>, window <b>0</b>, pane <b>1</b>. <code>send-keys</code> types into a pane, and <code>Enter</code> presses Enter. If your config numbers windows and panes from 1, use <code>dev:1.2</code> instead.</p>
+   <pre class="conf" style="margin-top:8px">tmux new -d -s dev
+tmux split-window -h -t dev
+tmux send-keys -t dev:0.1 'ping example.com' Enter
+tmux attach -t dev</pre>`,
+   steps: [
+     {do: 'Create a detached session: <code>tmux new -d -s dev</code>.', hint: 'Nothing visible happens; check with tmux ls.', check: on('session-created', e => e.name === 'dev' && e.detached)},
+     {do: 'Split it from the shell: <code>tmux split-window -h -t dev</code>.', hint: 'You\'re still in your plain shell. tmux changes the session in the background.', check: on('split', e => e.from === 'cli')},
+     {do: 'Start a command in the new pane: <code>tmux send-keys -t dev:0.1 \'ping example.com\' Enter</code>.', hint: 'Quote the command so it travels as one argument.', check: on('send-keys')},
+     {do: 'Attach and look: <code>tmux attach -t dev</code>.', hint: 'The right pane is already pinging.', check: on('attached', e => e.name === 'dev')},
+   ],
+   recap: 'Put those lines in a shell script and you get the same workspace every time. Tools like tmuxinator and tmuxp do this from a YAML file.'},
+  {id: 'challenges', mod: 'Automate', title: 'Expert challenges', setup: 'session',
+   intro: `<p>No step-by-step help this time; use whatever keys or commands you like. Each challenge is checked as soon as the trainer sees the result.</p>`,
+   steps: [
+     {do: '<b>IDE layout.</b> In the current window, make one tall pane on the left and two stacked panes on the right.', hint: 'Prefix % then Prefix ". Or make three panes and run <code>select-layout main-vertical</code>.', check: st(() => shape(W().root) === 'h(p,v(p,p))')},
+     {do: '<b>Named windows.</b> Have exactly three windows, named <code>code</code>, <code>server</code>, and <code>logs</code>, in that order.', hint: 'Prefix c makes windows, Prefix , renames, Prefix & closes extras. <code>move-window -t N</code> renumbers.', check: st(() => curS().windows.map(dispName).join(',') === 'code,server,logs')},
+     {do: '<b>Tiled and zoomed.</b> Make a window with four panes in the tiled layout, then zoom one of them.', hint: 'Split three times, Prefix Alt+5 (or select-layout tiled), then Prefix z.', check: st(() => PN() === 4 && W().layout === 'tiled' && W().zoom)},
+     {do: '<b>Copy one word.</b> Put exactly the word <code>observatory</code> into the paste buffer.', hint: 'cat notes.txt, then copy mode. Start the selection on the o and end it on the y.', check: st(() => S.buffer.trim() === 'observatory')},
+     {do: '<b>Two sessions.</b> Have sessions named <code>work</code> and <code>play</code>, and be attached to <code>play</code>.', hint: 'Prefix : new-session -s work, rename this one with Prefix $, and switch with Prefix s.', check: st(() => findExact('work') && findExact('play') && curS() && curS().name === 'play')},
+   ],
+   recap: 'You can build layouts, manage windows and sessions, and copy text without thinking about each key. Practise in Free play, and use the Key drill to keep the keys fresh.'},
+  {id: 'free', mod: 'Automate', title: 'Free play', setup: 'free',
+   intro: `<p>A sandbox with no checks. If you chose <b>Use in trainer</b> in the Config builder, tmux here starts with your config. Some things to try:</p>
+   <p>Run <code>./build.sh</code> in one pane and <code>tail -f app.log</code> in another. Bind a key: <code>bind -n M-Left select-pane -L</code> moves between panes with Alt+← and no prefix. Change the look: <code>set -g status-style bg=blue,fg=white</code>. Move the status bar: <code>set -g status-position top</code>.</p>`,
+   steps: [], recap: ''},
+];
+const SETUPS = {
+  none() {},
+  session() { this._s(); },
+  free() { S.server = true; if (saved.useConfig && saved.config) { const errs = runConfig(); if (errs.length) showMsg(errs[0], 3500); } this._s(); },
+  two() { const w = this._w(); const a = w.active, p2 = newPane(); insertSplit(w, a, 'h', p2.id); w.active = p2.id; w.lastPane = a; label3(w); },
+  three() { const w = this._w(); const a = w.active, p2 = newPane(); insertSplit(w, a, 'h', p2.id); const p3 = newPane(); insertSplit(w, p2.id, 'v', p3.id); w.lastPane = p2.id; w.active = p3.id; label3(w); },
+  windows() { const s = this._s(); const l = makeWindow(s, 'logs'); const lp = panes.get(l.active); runLine(lp, 'tail -f app.log', true); const n = makeWindow(s, 'notes'); runLine(panes.get(n.active), 'cat notes.txt', true); s.cur = s.windows[0].id; s.lastWin = null; },
+  sessions() { const s = this._s(); const t = makeSession('work'); S.client = s.id; S.lastSession = s.id; out(S.outer, `you@${HOST}:~$ tmux new -d -s work`); return t; },
+  _s() { S.server = true; const s = makeSession('learn'); S.lastSession = s.id; S.client = s.id; out(S.outer, `you@${HOST}:~$ tmux new -s learn`); return s; },
+  _w() { const s = this._s(); return winOf(s); },
+};
+function label3(w) { leaves(w.root).forEach((id, i) => out(panes.get(id), `# pane ${i}`)); }
+function world(kind) {
+  for (const p of panes.values()) stopProc(p);
+  panes.clear();
+  Object.assign(S, {sessions: [], client: null, server: false, prefix: false, repeatUntil: 0, mode: null, msg: null, buffer: '', opts: DEF(), custom: {}, unbound: new Set(), lastSession: null, prevSession: null, explain: null, lastSearch: null});
+  S.outer = newPane();
+  out(S.outer, 'Ctrl-b Academy practice shell. Type help to see what it understands.');
+  settingUp = true;
+  try { SETUPS[kind].call(SETUPS); } finally { settingUp = false; }
+}
+function openLesson(i, {reset = true} = {}) {
+  cur = Math.max(0, Math.min(LESSONS.length - 1, i)); step = 0; hintOpen = false;
+  saved.lesson = cur; persist();
+  if (reset) world(LESSONS[cur].setup);
+  renderLesson(); render(); renderRail();
+}
+function checkLesson(ev) {
+  if (settingUp) return;
+  const L = LESSONS[cur]; if (!L || !L.steps.length || step >= L.steps.length) return;
+  let moved = false;
+  while (step < L.steps.length && L.steps[step].check(ev)) { step++; hintOpen = false; moved = true; ev = {type: 'state'}; }
+  if (moved) {
+    if (step >= L.steps.length && !saved.done.includes(L.id)) { saved.done.push(L.id); persist(); renderRail(); }
+    renderLesson();
+  }
+}
+function renderLesson() {
+  const L = LESSONS[cur], mi = [...new Set(LESSONS.map(l => l.mod))].indexOf(L.mod) + 1;
+  const done = L.steps.length && step >= L.steps.length;
+  const stepsHtml = L.steps.length ? `<ol class="steps">${L.steps.map((s, i) => {
+    const cls = i < step ? 'done' : i === step ? 'current' : 'todo';
+    return `<li class="${cls}"><div>${s.do}</div>${i === step ? `<button class="hint-btn" type="button" data-hint aria-expanded="${hintOpen}">${hintOpen ? 'Hide hint' : 'Show a hint'}</button>${hintOpen ? `<div class="hint">${s.hint}</div>` : ''}` : ''}</li>`;
+  }).join('')}</ol>` : '';
+  const next = cur < LESSONS.length - 1 ? `<button class="btn${done ? ' primary' : ''}" type="button" data-next>Next: ${esc(LESSONS[cur + 1].title)} →</button>` : '';
+  $('#lesson').innerHTML = `<div class="eyebrow">Module ${mi} · ${esc(L.mod)}</div><h1>${esc(L.title)}</h1>
+    ${saved.done.includes(L.id) && !done ? '<span class="badge">Completed before</span>' : ''}
+    <div class="intro">${L.intro}</div>${stepsHtml}
+    ${done ? `<div class="complete"><strong>Lesson complete</strong>${L.recap}</div>` : ''}
+    <div class="lesson-actions"><button class="btn" type="button" data-reset>Reset this lesson</button>${next}</div>`;
+}
+function renderRail() {
+  const mods = [...new Set(LESSONS.map(l => l.mod))];
+  $('#mods').innerHTML = mods.map(m => `<div class="mod"><h3>${esc(m)}</h3><ol>${LESSONS.map((l, i) => l.mod !== m ? '' : `<li class="${saved.done.includes(l.id) ? 'done' : ''}"><button type="button" data-lesson="${i}" aria-current="${i === cur}"><span class="tick">${saved.done.includes(l.id) ? '✓' : String(i + 1).padStart(2, '0')}</span><span>${esc(l.title)}</span></button></li>`).join('')}</ol></div>`).join('');
+  const countable = LESSONS.filter(l => l.steps.length);
+  $('#progress-count').textContent = `${countable.filter(l => saved.done.includes(l.id)).length} of ${countable.length} done`;
+}
+
+/* ---------------- keybar ---------------- */
+const KEYBAR = [['PREFIX', 'Prefix'], ['%', '%'], ['"', '"'], ['Left', '←'], ['Up', '↑'], ['Down', '↓'], ['Right', '→'], ['o', 'o'], ['z', 'z'], ['x', 'x'], ['c', 'c'], [',', ','], ['n', 'n'], ['p', 'p'], ['d', 'd'], [':', ':'], ['[', '['], [']', ']'], ['s', 's'], ['w', 'w'], ['q', 'q'], ['Space', 'Space'], ['y', 'y'], ['Enter', 'Enter'], ['Escape', 'Esc'], ['C-c', 'Ctrl+c'], ['C-u', 'Ctrl+u'], ['Backspace', '⌫']];
+function renderKeybar() {
+  $('#keybar').innerHTML = KEYBAR.map(([k, l]) => `<button type="button" data-key="${esc(k)}" class="${k === 'PREFIX' ? 'pk' : ''}" aria-label="${k === 'PREFIX' ? 'Prefix key' : 'Key ' + esc(l)}">${esc(l)}</button>`).join('');
+}
+
+/* ---------------- input wiring ---------------- */
+const kbd = $('#kbd'), term = $('#term');
+function focusTerm() { try { kbd.focus({preventScroll: true}); } catch (e) { kbd.focus(); } }
+kbd.addEventListener('focus', () => { S.focused = true; render(); });
+kbd.addEventListener('blur', () => { S.focused = false; render(); });
+kbd.addEventListener('keydown', e => { const k = normKey(e); if (!k) return; e.preventDefault(); handleKey(k); });
+kbd.addEventListener('input', () => { const v = kbd.value; kbd.value = ''; for (const ch of v) handleKey(ch === ' ' ? 'Space' : ch === '\n' ? 'Enter' : ch); });
+term.addEventListener('mousedown', e => {
+  const paneEl = e.target.closest('[data-pid]'), winEl = e.target.closest('[data-wid]');
+  setTimeout(focusTerm, 0);
+  if (!S.client || !S.opts.mouse) return;
+  if (winEl) { const s = curS(), w = s.windows.find(x => x.id === +winEl.dataset.wid); if (w) { selectWin(s, w); emit('select-window', {how: 'mouse', index: w.index}); after(); } return; }
+  if (paneEl) { const w = curW(), id = +paneEl.dataset.pid; if (w && id !== w.active && leaves(w.root).includes(id)) { if (S.mode && S.mode.type === 'copy') S.mode = null; w.lastPane = w.active; w.active = id; S.explain = {keys: 'Mouse click', cmd: 'select-pane -t =', desc: 'With mouse on, a click selects the pane.'}; emit('select-pane', {how: 'mouse'}); after(); } }
+});
+term.addEventListener('wheel', e => {
+  if (!S.client || !S.opts.mouse) return;
+  e.preventDefault();
+  if (e.deltaY < 0) { if (!S.mode || S.mode.type !== 'copy') enterCopy(false); if (S.mode && S.mode.type === 'copy') { S.mode.row = Math.max(0, S.mode.row - 3); } }
+  else if (S.mode && S.mode.type === 'copy') { S.mode.row = Math.min(S.mode.lines.length - 1, S.mode.row + 3); if (S.mode.row >= S.mode.lines.length - 1) { S.mode = null; emit('copy-exit', {}); } }
+  after();
+}, {passive: false});
+$('#keybar').addEventListener('pointerdown', e => { if (e.target.closest('[data-key]')) e.preventDefault(); });
+$('#keybar').addEventListener('click', e => { const b = e.target.closest('[data-key]'); if (!b) return; focusTerm(); handleKey(b.dataset.key === 'PREFIX' ? S.opts.prefix : b.dataset.key); });
+$('#lesson').addEventListener('click', e => {
+  if (e.target.closest('[data-hint]')) { hintOpen = !hintOpen; renderLesson(); return; }
+  if (e.target.closest('[data-reset]')) { openLesson(cur); focusTerm(); return; }
+  if (e.target.closest('[data-next]')) { openLesson(cur + 1); return; }
+});
+$('#mods').addEventListener('click', e => { const b = e.target.closest('[data-lesson]'); if (b) { openLesson(+b.dataset.lesson); if (matchMedia('(max-width: 819px)').matches) $('#rail').open = false; } });
+if (window.ResizeObserver) new ResizeObserver(() => { const h = $('#term-panes').clientHeight; if (h && Math.abs(h - S.areaH) > 2) { S.areaH = h; scheduleRender(); } }).observe($('#term-panes'));
+setInterval(() => { if (S.client && S.opts.status) scheduleRender(); }, 15000);
+
+/* ---------------- tabs ---------------- */
+const VIEWS = ['learn', 'drill', 'reference', 'config'];
+function showView(v) {
+  if (!VIEWS.includes(v)) v = 'learn';
+  for (const x of VIEWS) $('#view-' + x).hidden = x !== v;
+  $$('.tabs button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.view === v)));
+  if (v === 'drill') renderDrill();
+}
+$$('.tabs button').forEach(b => b.addEventListener('click', () => { const v = b.dataset.view; if (location.hash !== '#' + v) location.hash = v; else showView(v); }));
+window.addEventListener('hashchange', () => showView(location.hash.slice(1)));
+
+/* ---------------- drill ---------------- */
+const DRILL = [
+  ['Split the pane into left and right', '%'], ['Split the pane into top and bottom', '"'], ['Detach from the session', 'd'], ['Create a new window', 'c'],
+  ['Rename the current window', ','], ['Go to the next window', 'n'], ['Go to the previous window', 'p'], ['Go to window 1', '1'], ['Toggle zoom on the pane', 'z'],
+  ['Close the pane (with confirmation)', 'x'], ['Cycle to the next pane', 'o'], ['Show pane numbers', 'q'], ['Enter copy mode', '['], ['Paste the copied text', ']'],
+  ['Open the command prompt', ':'], ['Pick a session from a list', 's'], ['Pick a window from a tree', 'w'], ['Move the pane into its own window', '!'],
+  ['Cycle through preset layouts', 'Space'], ['Rename the session', '$'], ['Go back to the last window', 'l'], ['Jump back to the previous pane', ';'],
+  ['Close the window (with confirmation)', '&'], ['List every key binding', '?'], ['Show the big clock', 't'], ['Swap with the next pane', '}'], ['Switch to the next session', ')'],
+].map(([q, k]) => ({q, k}));
+const DRILL_CMDS = [
+  {q: 'From your shell: start a new session named api.', a: 'tmux new -s api', re: /^tmux new(-session)? -s api$/},
+  {q: 'From your shell: list all sessions.', a: 'tmux ls', re: /^tmux (ls|list-sessions)$/},
+  {q: 'From your shell: attach to the session named api.', a: 'tmux a -t api', re: /^tmux (a|at|attach|attach-session) -t api$/},
+  {q: 'From your shell: end the session named api.', a: 'tmux kill-session -t api', re: /^tmux kill-session -t api$/},
+  {q: 'From your shell: create a session named jobs without attaching to it.', a: 'tmux new -d -s jobs', re: /^tmux new(-session)? (-d -s jobs|-s jobs -d|-ds jobs)$/},
+  {q: 'At the tmux prompt: turn on mouse support for every session.', a: 'set -g mouse on', re: /^set(-option)? -g mouse on$/},
+  {q: 'At the tmux prompt: reload your config file.', a: 'source-file ~/.tmux.conf', re: /^source(-file)? ~\/\.tmux\.conf$/},
+  {q: 'At the tmux prompt: split side by side, opening in the current pane\'s directory.', a: 'split-window -h -c "#{pane_current_path}"', re: /^split(-window|w) -h -c ["']?#\{pane_current_path\}["']?$/},
+  {q: 'At the tmux prompt: arrange all panes in a grid.', a: 'select-layout tiled', re: /^select(-layout|l) tiled$/},
+  {q: 'At the tmux prompt: type into every pane of the window at once.', a: 'setw synchronize-panes on', re: /^(setw|set-window-option|set -w|set) synchronize-panes( on)?$/},
+  {q: 'From your shell: type npm test and press Enter in pane 1 of window 0 in session dev.', a: "tmux send-keys -t dev:0.1 'npm test' Enter", re: /^tmux send(-keys)? -t dev:0\.1 ["']npm test["'] (Enter|C-m)$/},
+  {q: 'In ~/.tmux.conf: make Ctrl+a the prefix (the set line).', a: 'set -g prefix C-a', re: /^set(-option)? -g prefix C-a$/},
+  {q: 'At the tmux prompt: bring the pane from window 2 into the current window.', a: 'join-pane -s :2', re: /^join(-pane|p) -s :?2$/},
+  {q: 'In ~/.tmux.conf: number windows from 1.', a: 'set -g base-index 1', re: /^set(-option)? -g base-index 1$/},
+];
+const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const drill = {queue: shuffle([...DRILL]), card: null, prefix: false, right: 0, total: 0, state: 'idle', note: ''};
+const cmdDrill = {queue: shuffle([...DRILL_CMDS]), card: null, right: 0, total: 0, answered: false};
+function drillNext() { if (!drill.queue.length) drill.queue = shuffle([...DRILL]); drill.card = drill.queue.shift(); drill.prefix = false; drill.state = 'ask'; drill.note = ''; renderDrill(); }
+function cmdNext() { if (!cmdDrill.queue.length) cmdDrill.queue = shuffle([...DRILL_CMDS]); cmdDrill.card = cmdDrill.queue.shift(); cmdDrill.answered = false; $('#cmd-input').value = ''; $('#cmd-state').textContent = ''; renderDrill(); }
+function renderDrill() {
+  if (!drill.card) drill.card = drill.queue.shift();
+  if (!cmdDrill.card) cmdDrill.card = cmdDrill.queue.shift();
+  const pad = $('#pad'), stEl = $('#pad-state'), pfx = label(S.opts.prefix === 'C-b' ? 'C-b' : S.opts.prefix);
+  $('#pad-q').textContent = drill.card.q;
+  pad.classList.toggle('armed', drill.prefix);
+  stEl.className = 'state' + (drill.state === 'right' ? ' good' : drill.state === 'wrong' ? ' bad' : '');
+  stEl.innerHTML = drill.state === 'idle' ? 'Click here to start.' : drill.state === 'ask' ? (drill.prefix ? 'Prefix pressed. Now the key.' : (drill.note || (($('#pad-skip').checked ? 'Press the key.' : `Press ${esc(pfx)}, let go, then the key.`)))) :
+    drill.state === 'right' ? `Right: <kbd>${esc(label(drill.card.k))}</kbd>. Press Space for the next card.` : `It's <kbd>${esc(label(drill.card.k))}</kbd>. Press Space for the next card.`;
+  $('#pad-score').textContent = drill.total ? `${drill.right} of ${drill.total} right this session` : '';
+  $('#cmd-q').textContent = cmdDrill.card.q;
+  $('#cmd-score').textContent = cmdDrill.total ? `${cmdDrill.right} of ${cmdDrill.total} right this session` : '';
+}
+$('#pad').addEventListener('click', () => { if (drill.state === 'idle') { drill.state = 'ask'; renderDrill(); } });
+$('#pad').addEventListener('keydown', e => {
+  const k = normKey(e); if (!k) return; e.preventDefault();
+  if (drill.state === 'idle') { drill.state = 'ask'; }
+  else if (drill.state !== 'ask') { if (k === 'Space' || k === 'Enter') drillNext(); return; }
+  else if (!$('#pad-skip').checked && !drill.prefix) {
+    if (k === 'C-b' || k === S.opts.prefix) drill.prefix = true; else drill.note = 'Start with the prefix (Ctrl+b), then the key.';
+  } else {
+    drill.total++;
+    if (k === drill.card.k) { drill.right++; drill.state = 'right'; }
+    else { drill.state = 'wrong'; drill.queue.splice(Math.min(2, drill.queue.length), 0, drill.card); }
+  }
+  renderDrill();
+});
+$('#pad-skip').addEventListener('change', renderDrill);
+$('#drill-keys').addEventListener('click', () => { $('#drill-keys').setAttribute('aria-pressed', 'true'); $('#drill-cmds').setAttribute('aria-pressed', 'false'); $('#drill-keys-panel').hidden = false; $('#drill-cmds-panel').hidden = true; });
+$('#drill-cmds').addEventListener('click', () => { $('#drill-cmds').setAttribute('aria-pressed', 'true'); $('#drill-keys').setAttribute('aria-pressed', 'false'); $('#drill-keys-panel').hidden = true; $('#drill-cmds-panel').hidden = false; $('#cmd-input').focus(); });
+$('#cmd-form').addEventListener('submit', e => {
+  e.preventDefault();
+  if (cmdDrill.answered) { cmdNext(); $('#cmd-input').focus(); return; }
+  const v = $('#cmd-input').value.trim().replace(/\s+/g, ' '); if (!v) return;
+  cmdDrill.total++; cmdDrill.answered = true;
+  const ok = cmdDrill.card.re.test(v); if (ok) cmdDrill.right++; else cmdDrill.queue.splice(Math.min(2, cmdDrill.queue.length), 0, cmdDrill.card);
+  const s = $('#cmd-state'); s.style.color = ok ? 'var(--accent)' : 'var(--danger)';
+  s.innerHTML = (ok ? 'Right. ' : 'Not quite. ') + `One answer: <code>${esc(cmdDrill.card.a)}</code>. Press Enter for the next one.`;
+  renderDrill();
+});
+$('#cmd-skip').addEventListener('click', () => { if (!cmdDrill.answered) { cmdDrill.total++; cmdDrill.answered = true; cmdDrill.queue.splice(Math.min(2, cmdDrill.queue.length), 0, cmdDrill.card); } const s = $('#cmd-state'); s.style.color = 'var(--muted)'; s.innerHTML = `Answer: <code>${esc(cmdDrill.card.a)}</code>. Press Enter for the next one.`; $('#cmd-input').focus(); renderDrill(); });
+
+/* ---------------- reference ---------------- */
+function refTable(title, rows) { return `<h3>${esc(title)}</h3><div class="tbl-wrap"><table><thead><tr><th>Keys</th><th>Command</th><th>What it does</th></tr></thead><tbody>${rows.map(([k, c, d]) => `<tr><td>${k}</td><td><code>${esc(c)}</code></td><td>${esc(d)}</td></tr>`).join('')}</tbody></table></div>`; }
+function pk(k) { return `<kbd>Prefix</kbd> ${k.split(' or ').map(x => x.split('+').map(y => `<kbd>${esc(y)}</kbd>`).join('+')).join(' or ')}`; }
+function bindRow(k, shown) { const d = DEFAULT_BINDS[k]; return [pk(shown || label(k)), d[0], d[1]]; }
+function renderReference() {
+  $('#reference').innerHTML = `<h2>Reference</h2><p class="lead">The default keys in tmux 3.x. <kbd>Prefix</kbd> is <kbd>Ctrl</kbd>+<kbd>b</kbd> unless you change it. Press the prefix, let go, then the key.</p>
+  <div class="ref-grid"><div>
+  ${refTable('Sessions', [bindRow('d'), bindRow('s'), bindRow('$'), bindRow('('), bindRow(')'), bindRow(':')])}
+  ${refTable('Windows', [bindRow('c'), bindRow(','), bindRow('&'), bindRow('n'), bindRow('p'), bindRow('l'), [pk('0 … 9'), 'select-window -t :=N', 'Go to window N'], bindRow('w')])}
+  ${refTable('Copy mode', [bindRow('['), bindRow('PageUp'), bindRow(']')])}
+  <h3>Inside copy mode</h3><div class="tbl-wrap"><table><thead><tr><th>Job</th><th>vi keys</th><th>emacs keys (default)</th></tr></thead><tbody>
+  ${[['Move', 'h j k l', '← ↓ ↑ →'], ['Page up / down', 'PgUp / PgDn', 'PgUp / PgDn'], ['Half page up / down', 'Ctrl+u / Ctrl+d', 'Alt+v / Ctrl+v'], ['Top / bottom', 'g / G', 'Alt+< / Alt+>'], ['Start selection', 'Space', 'Ctrl+Space'], ['Copy and leave', 'Enter', 'Alt+w'], ['Search up / down', '? / /', 'Ctrl+r / Ctrl+s'], ['Next match', 'n', 'n'], ['Leave', 'q', 'q or Esc']].map(r => `<tr><td>${esc(r[0])}</td><td>${r[1].split(' / ').map(x => `<kbd>${esc(x)}</kbd>`).join(' / ')}</td><td>${r[2].split(' / ').map(x => `<kbd>${esc(x)}</kbd>`).join(' / ')}</td></tr>`).join('')}
+  </tbody></table></div>
+  </div><div>
+  ${refTable('Panes', [bindRow('%'), bindRow('"'), [pk('← ↑ → ↓'), 'select-pane -L/-U/-R/-D', 'Go to the pane in that direction'], bindRow('o'), bindRow(';'), bindRow('q'), bindRow('z'), bindRow('x'), bindRow('!'), bindRow('{'), bindRow('}'), bindRow('Space'), [pk('Alt+1 … Alt+5'), 'select-layout …', 'Pick a preset layout'], [pk('Ctrl+arrow'), 'resize-pane -L/-U/-R/-D', 'Move the border one cell (repeats)'], [pk('Alt+arrow'), 'resize-pane … 5', 'Move the border five cells (repeats)']])}
+  ${refTable('Help', [bindRow('?'), bindRow('t')])}
+  <h3>From your shell</h3><div class="tbl-wrap"><table><thead><tr><th>Command</th><th>What it does</th></tr></thead><tbody>
+  ${[['tmux', 'Start a new, numbered session'], ['tmux new -s name', 'Start a session called name'], ['tmux new -d -s name', 'Start one without attaching'], ['tmux ls', 'List sessions'], ['tmux a', 'Attach to the most recent session'], ['tmux a -t name', 'Attach to a named session'], ['tmux kill-session -t name', 'End a session'], ['tmux kill-server', 'End tmux and every session'], ['tmux source ~/.tmux.conf', 'Reload your config'], ["tmux send-keys -t s:w.p 'cmd' Enter", 'Type a command into a pane'], ['tmux list-keys', 'Print every binding']].map(r => `<tr><td><code>${esc(r[0])}</code></td><td>${esc(r[1])}</td></tr>`).join('')}
+  </tbody></table></div>
+  <h3>Targets</h3><p>Commands take <code>-t session:window.pane</code>. <code>dev:1.0</code> is session dev, window 1, pane 0. <code>:2</code> is window 2 in the current session, <code>:.+</code> the next pane, <code>!</code> the last window.</p>
+  <h3>Going further</h3><ul class="links">
+  <li><a href="https://github.com/tmux/tmux/wiki/Getting-Started" target="_blank" rel="noopener">tmux wiki: Getting Started</a>, the official guide</li>
+  <li><a href="https://man7.org/linux/man-pages/man1/tmux.1.html" target="_blank" rel="noopener">The tmux manual page</a>, every command and option</li>
+  <li><a href="https://github.com/tmux-plugins/tpm" target="_blank" rel="noopener">TPM, the tmux plugin manager</a></li>
+  <li><a href="https://github.com/tmux-plugins/tmux-resurrect" target="_blank" rel="noopener">tmux-resurrect</a> saves sessions across reboots</li>
+  </ul>
+  </div></div>`;
+}
+
+/* ---------------- config builder ---------------- */
+const CONF_OPTS = [
+  {id: 'prefix', type: 'select', label: 'Prefix key', help: 'Ctrl+a is easier to reach; Ctrl+Space avoids clashing with the shell.', choices: [['C-b', 'Ctrl+b (default)'], ['C-a', 'Ctrl+a'], ['C-Space', 'Ctrl+Space']], def: 'C-a'},
+  {id: 'mouse', label: 'Mouse support', help: 'Click panes and windows, drag borders, scroll into copy mode.', def: true},
+  {id: 'base1', label: 'Number windows and panes from 1', help: 'Matches the order of the number keys.', def: true},
+  {id: 'renumber', label: 'Renumber windows when one closes', help: 'No gaps like 1, 2, 4.', def: true},
+  {id: 'splits', label: '| and - split, in the current directory', help: 'Easier to remember than % and ", and new panes open where you are.', def: true},
+  {id: 'vim', label: 'Move between panes with h j k l', help: 'Replaces Prefix l (last window).', def: false},
+  {id: 'vi', label: 'vi keys in copy mode', help: 'Space to select, Enter to copy, / to search.', def: true},
+  {id: 'history', label: 'Keep 50,000 lines of scrollback', help: 'The default is 2,000 per pane.', def: true},
+  {id: 'escape', label: 'No delay after Escape', help: 'Recommended if you use vim or neovim.', def: true},
+  {id: 'colour', label: 'Full colour (tmux-256color)', help: 'So colour themes in your editor look right.', def: true},
+  {id: 'reload', label: 'Reload the config with Prefix r', help: 'Handy while you experiment.', def: true},
+  {id: 'status', type: 'select', label: 'Status bar colour', help: 'Purely cosmetic.', choices: [['green', 'Green (default)'], ['blue', 'Blue'], ['magenta', 'Magenta'], ['cyan', 'Cyan'], ['colour235', 'Dark grey']], def: 'green'},
+];
+let confState = {};
+try { confState = JSON.parse(localStorage.getItem(STORE + '-conf') || '{}'); } catch (e) {}
+for (const o of CONF_OPTS) if (!(o.id in confState)) confState[o.id] = o.def;
+function renderConfForm() {
+  $('#conf-form').innerHTML = CONF_OPTS.map(o => o.type === 'select'
+    ? `<label class="opt" for="conf-${o.id}"><span style="flex:1"><b>${esc(o.label)}</b><small>${esc(o.help)}</small></span><select id="conf-${o.id}" data-opt="${o.id}">${o.choices.map(([v, l]) => `<option value="${v}"${confState[o.id] === v ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></label>`
+    : `<label class="opt" for="conf-${o.id}"><input type="checkbox" id="conf-${o.id}" data-opt="${o.id}"${confState[o.id] ? ' checked' : ''}><span><b>${esc(o.label)}</b><small>${esc(o.help)}</small></span></label>`).join('');
+}
+function buildConf() {
+  const c = confState, L = ['# ~/.tmux.conf', '# Made with Ctrl-b Academy. Reload with: tmux source ~/.tmux.conf', ''];
+  if (c.prefix !== 'C-b') L.push(`# Use ${label(c.prefix)} as the prefix`, 'unbind C-b', `set -g prefix ${c.prefix}`, `bind ${c.prefix} send-prefix`, '');
+  if (c.mouse) L.push('# Click panes and windows, drag borders, scroll with the wheel', 'set -g mouse on', '');
+  if (c.base1) L.push('# Number windows and panes from 1', 'set -g base-index 1', 'setw -g pane-base-index 1', '');
+  if (c.renumber) L.push('# Close gaps in window numbers', 'set -g renumber-windows on', '');
+  if (c.splits) L.push('# | and - split, opening in the current directory', 'bind | split-window -h -c "#{pane_current_path}"', 'bind - split-window -v -c "#{pane_current_path}"', '');
+  if (c.vim) L.push('# Move between panes with h j k l', 'bind h select-pane -L', 'bind j select-pane -D', 'bind k select-pane -U', 'bind l select-pane -R', '');
+  if (c.vi) L.push('# vi keys in copy mode', 'setw -g mode-keys vi', '');
+  if (c.history) L.push('# More scrollback', 'set -g history-limit 50000', '');
+  if (c.escape) L.push('# No delay after Escape', 'set -sg escape-time 10', '');
+  if (c.colour) L.push('# Full colour support', 'set -g default-terminal "tmux-256color"', '');
+  if (c.status !== 'green') L.push('# Status bar colour', `set -g status-style bg=${c.status},fg=${c.status === 'colour235' ? 'white' : 'black'}`, '');
+  if (c.reload) L.push('# Reload this file with Prefix r', 'bind r source-file ~/.tmux.conf \\; display "Config reloaded"', '');
+  return L.join('\n').replace(/\n+$/, '\n');
+}
+function renderConf() {
+  const text = buildConf();
+  $('#conf-out').innerHTML = text.split('\n').map(l => l.startsWith('#') ? `<span class="c">${esc(l)}</span>` : esc(l)).join('\n');
+  $('#conf-note').textContent = saved.useConfig ? 'Free play starts tmux with this config. Lessons keep tmux defaults so their steps match; in the config lesson you load it yourself.' : 'Not loaded. Free play and the lessons use tmux defaults.';
+}
+$('#conf-form').addEventListener('change', e => { const el = e.target.closest('[data-opt]'); if (!el) return; confState[el.dataset.opt] = el.type === 'checkbox' ? el.checked : el.value; try { localStorage.setItem(STORE + '-conf', JSON.stringify(confState)); } catch (err) {} renderConf(); });
+$('#conf-use').addEventListener('click', () => { saved.config = buildConf(); saved.useConfig = true; persist(); renderConf(); emit('config-saved'); toast('Saved as ~/.tmux.conf in the trainer. Apply it with Prefix : source-file ~/.tmux.conf'); });
+$('#conf-off').addEventListener('click', () => { saved.useConfig = false; persist(); renderConf(); toast('The trainer will start tmux with default settings.'); });
+$('#conf-copy').addEventListener('click', async () => {
+  const text = buildConf();
+  try { await navigator.clipboard.writeText(text); toast('Copied. Paste it into ~/.tmux.conf on your computer.'); }
+  catch (e) { const r = document.createRange(); r.selectNodeContents($('#conf-out')); const s = getSelection(); s.removeAllRanges(); s.addRange(r); toast('Copying was blocked here. The text is selected; press Ctrl+c or Cmd+c.'); }
+});
+
+/* ---------------- boot ---------------- */
+renderKeybar(); renderReference(); renderConfForm(); renderConf();
+if (matchMedia('(max-width: 1219px)').matches) $('#rail').open = false;
+cur = Math.min(saved.lesson || 0, LESSONS.length - 1);
+openLesson(cur);
+showView(location.hash.slice(1));
+window.__tmuxTrainer = {S, handleKey, openLesson, get step() { return step; }, get lesson() { return cur; }, panes, curW, leaves, shape};
+})();
+</script>
+
+</body>
+</html>
