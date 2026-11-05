@@ -4,6 +4,8 @@ An interactive trainer for [tmux](https://github.com/tmux/tmux). You practise wi
 
 It's one self-contained HTML file. No install, no server, nothing sent anywhere.
 
+Also in this repository: [**-xe Academy**](journalctl-academy/), the same idea applied to `journalctl` — see [journalctl-academy/README.md](journalctl-academy/README.md).
+
 ## Use it
 
 - **Online:** enable GitHub Pages for this repository (Settings → Pages → Deploy from a branch → `main`, `/ (root)`), then open the address GitHub gives you.
