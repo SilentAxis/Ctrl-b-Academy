@@ -33,7 +33,7 @@
 html,body{background:var(--bg);color:var(--ink)}
 body{font-family:var(--f-body);font-size:16px;line-height:1.55}
 a{color:var(--accent)}
-code{font-family:var(--f-term);font-size:.88em;background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:.05em .35em;white-space:nowrap}
+code{font-family:var(--f-term);font-size:.88em;background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:.05em .35em;white-space:normal;overflow-wrap:anywhere;box-decoration-break:clone;-webkit-box-decoration-break:clone}
 kbd{font-family:var(--f-term);font-size:.82em;display:inline-block;min-width:1.7em;text-align:center;padding:.1em .45em;border:1px solid var(--kbd-edge);border-bottom-width:2px;border-radius:5px;background:var(--kbd);color:var(--ink);line-height:1.4;white-space:nowrap}
 button{font:inherit;color:inherit}
 :focus-visible{outline:2px solid var(--focus);outline-offset:2px}
@@ -157,6 +157,8 @@ table{border-collapse:collapse;width:100%;font-size:.92rem}
 th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--line);vertical-align:top}
 th{font-family:var(--f-display);font-size:.68rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
 td code{white-space:normal}
+.lesson{min-width:0;overflow-wrap:anywhere}
+.lesson pre.conf{white-space:pre-wrap;overflow-wrap:anywhere;overflow-x:visible}
 .ref-grid{display:grid;gap:4px 24px;grid-template-columns:minmax(0,1fr)}
 @media (min-width:980px){.ref-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
 .opts{display:grid;gap:10px}
